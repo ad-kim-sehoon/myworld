@@ -258,3 +258,37 @@ function frame(t){
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+// Clear caches and hard-reload handler (wired to #clear-cache-btn)
+;(function(){
+  const clearBtn = document.getElementById('clear-cache-btn');
+  if(!clearBtn) return;
+  clearBtn.addEventListener('click', async ()=>{
+    clearBtn.disabled = true;
+    const originalText = clearBtn.textContent;
+    clearBtn.textContent = '캐시 삭제 중...';
+    try{
+      // delete CacheStorage entries
+      if('caches' in window){
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      // unregister service workers
+      if('serviceWorker' in navigator){
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+      // clear storages
+      try{ localStorage.clear(); sessionStorage.clear(); } catch(e){}
+      // force reload cache-busted
+      const url = window.location.origin + window.location.pathname + '?_=' + Date.now();
+      // small timeout so UI updates before navigation
+      setTimeout(()=> window.location.replace(url), 200);
+    }catch(err){
+      console.error('Cache clear failed', err);
+      alert('캐시 삭제 중 오류가 발생했습니다. 콘솔을 확인하세요.');
+      clearBtn.disabled = false;
+      clearBtn.textContent = originalText;
+    }
+  });
+})();
