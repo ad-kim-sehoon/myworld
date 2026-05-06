@@ -1,4 +1,5 @@
 // Minimal pixel open-world prototype (tile-based) with virtual joystick and tree collision
+// MODIFIED: safe spawn finder added to avoid starting inside blocked tile
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
 let DPR = Math.max(1, window.devicePixelRatio || 1);
@@ -523,6 +524,39 @@ function frame(t){
   last = t;
   requestAnimationFrame(frame);
 }
+
+// --- New: find a safe spawn tile near origin so player doesn't start inside water/rock/tree ---
+function tilePositionSafe(tx,ty){
+  const t = tileTypeAt(tx,ty);
+  if(t === 'water' || t === 'rock') return false;
+  if(t === 'forest'){
+    if(placeObstacleAt(tx,ty)) return false;
+    if(hasTreeAt(tx,ty) && isTreeCollidable(tx,ty)) return false;
+  }
+  return true;
+}
+function findSafeSpawn(){
+  const maxR = 64; // search radius in tiles
+  for(let r=0;r<=maxR;r++){
+    for(let dy=-r; dy<=r; dy++){
+      for(let dx=-r; dx<=r; dx++){
+        const tx = dx; const ty = dy;
+        if(tilePositionSafe(tx,ty)){
+          player.x = tx * TILE + TILE/2;
+          player.y = ty * TILE + TILE/2;
+          return;
+        }
+      }
+    }
+  }
+  // fallback: center-ish
+  player.x = Math.floor(window.innerWidth/2);
+  player.y = Math.floor(window.innerHeight/2);
+}
+
+// Find safe spawn before starting main loop
+findSafeSpawn();
+
 requestAnimationFrame(frame);
 
 // Clear caches and hard-reload handler (wired to #clear-cache-btn)
