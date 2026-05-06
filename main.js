@@ -154,7 +154,7 @@ function tileColor(type){
 const TREE_GLOBAL_DENSITY = 4; // percent (base density)
 let TREE_GLOBAL_SCALE = 0.2; // global scale multiplier (0.2 keeps ~20% of previous trees)
 // Decoration scale (controls how many small decorative pixels/objects are drawn)
-const DECOR_GLOBAL_SCALE = 0.2; // 0.2 => draw ~20% of decorative pixels
+let DECOR_GLOBAL_SCALE = 0.08; // 0.08 => draw ~8% of decorative pixels (reduced for decluttering)
 // Quickly reduce object counts by multiplying TREE_GLOBAL_SCALE (e.g., 0.2 removes ~80%)
 function regionDensityModifier(tx,ty){
   // Simple region rules to create paths and clearings
@@ -176,7 +176,30 @@ function treeDensityAt(tx,ty){
 function hasTreeAt(tx,ty){
   const density = treeDensityAt(tx,ty);
   if(density <= 0) return false;
-  return (hash2(tx,ty) % 100) < density;
+  // base chance
+  const baseHit = (hash2(tx,ty) % 100) < density;
+  if(!baseHit) return false;
+  // thinning by clearance: ensure no nearby tree has a stronger claim
+  // compute minimum clearance in tiles based on player collision size
+  const playerWidth = SPRITE_PX * SPRITE_SCALE * 0.6; // same as collision box width used elsewhere
+  const minClearPixels = Math.max(playerWidth, SPRITE_PX * SPRITE_SCALE * 0.8);
+  const minClearTiles = Math.max(1, Math.ceil(minClearPixels / TILE));
+  const myHash = hash2(tx,ty);
+  for(let dy = -minClearTiles; dy <= minClearTiles; dy++){
+    for(let dx = -minClearTiles; dx <= minClearTiles; dx++){
+      if(dx === 0 && dy === 0) continue;
+      const nx = tx + dx;
+      const ny = ty + dy;
+      // if neighbor could be a tree
+      const nd = treeDensityAt(nx,ny);
+      if(nd <= 0) continue;
+      // if neighbor's hash is lower (stronger), defer to it -> skip this tree
+      const nh = hash2(nx,ny);
+      if(nh < myHash) return false;
+    }
+  }
+  // passed thinning, keep tree
+  return true;
 }
 
 // Tree type: 'large' (possible collidable) vs 'small' (decorative)
