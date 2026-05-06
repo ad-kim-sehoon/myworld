@@ -152,7 +152,8 @@ function tileColor(type){
 // Tree placement: deterministic; trees appear on some forest tiles
 function hasTreeAt(tx,ty){
   if(tileTypeAt(tx,ty) !== 'forest') return false;
-  return (hash2(tx,ty) % 10) < 4; // ~40% of forest tiles have trees
+  // reduce tree density to make navigation easier (~20% of forest tiles)
+  return (hash2(tx,ty) % 10) < 2; // ~20% density
 }
 function tileBlocked(tx,ty){
   const t = tileTypeAt(tx,ty);
@@ -260,8 +261,9 @@ function update(dt){
   player.vy += deltaVy;
 
   // attempt movement with axis-separated rectangle collision using player's bbox
-  const w = SPRITE_PX * SPRITE_SCALE * 0.6; // narrower collision box than sprite for natural feel
-  const h = SPRITE_PX * SPRITE_SCALE * 0.9;
+  // collision box slightly smaller than sprite to avoid snagging on small background dots
+  const w = SPRITE_PX * SPRITE_SCALE * 0.5; // narrower
+  const h = SPRITE_PX * SPRITE_SCALE * 0.85; // a bit shorter
 
   // X
   const newX = player.x + player.vx * dt;
