@@ -21,7 +21,7 @@ const keys = {};
 window.addEventListener('keydown', e => { keys[e.key] = true; });
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 
-// Procedural 32x32 pixel hero renderer with 2-frame walk animation
+// Procedural 32x32 pixel hero renderer with 2-frame walk animation (palette-mapped)
 const SPRITE_PX = 32;
 const SPRITE_SCALE = 2; // displayed size: 64x64
 function renderHero(ctx, centerX, centerY, frame = 0){
@@ -69,7 +69,8 @@ function renderHero(ctx, centerX, centerY, frame = 0){
       if(py >= 30 && px >= 11 && px <= 21 && (px <= 13 || px >= 19)) color = '#000000';
 
       if(color){
-        ctx.fillStyle = color;
+        const mapped = mapToPalette(color) || color;
+        ctx.fillStyle = mapped;
         ctx.fillRect(startX + px*pixelSize, startY + py*pixelSize, pixelSize, pixelSize);
       }
     }
@@ -95,12 +96,52 @@ function tileTypeAt(tx,ty){
   if(v < 30) return 'forest';
   return 'grass';
 }
+// Palette: 256-color palette (6x6x6 cube + 40 grays) and fast nearest-color cache
+const PALETTE = (function(){
+  const p = [];
+  const steps = [0,51,102,153,204,255]; // 6 levels
+  for(let r of steps) for(let g of steps) for(let b of steps) p.push(rgbToHex(r,g,b));
+  // add 40 grays
+  for(let i=0;i<40;i++){ const v = Math.round(i * 255 / 39); p.push(rgbToHex(v,v,v)); }
+  // ensure length 256
+  while(p.length < 256) p.push('#000000');
+  return p.slice(0,256);
+})();
+const _paletteCache = new Map();
+function hexToRgb(hex){
+  if(!hex) return null;
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16);
+  const g = parseInt(h.substring(2,4),16);
+  const b = parseInt(h.substring(4,6),16);
+  return {r,g,b};
+}
+function rgbToHex(r,g,b){
+  return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+function colorDist2(a,b){
+  const dr = a.r - b.r; const dg = a.g - b.g; const db = a.b - b.b; return dr*dr + dg*dg + db*db;
+}
+function mapToPalette(hex){
+  if(!hex) return null;
+  if(_paletteCache.has(hex)) return _paletteCache.get(hex);
+  const rgb = hexToRgb(hex);
+  let best = PALETTE[0]; let bestD = Infinity;
+  for(const ph of PALETTE){
+    const pr = hexToRgb(ph);
+    const d = colorDist2(rgb, pr);
+    if(d < bestD){ bestD = d; best = ph; if(d === 0) break; }
+  }
+  _paletteCache.set(hex, best);
+  return best;
+}
+
 function tileColor(type){
   switch(type){
-    case 'water': return '#3b82f6';
-    case 'rock': return '#9ca3af';
-    case 'forest': return '#16a34a';
-    default: return '#bbf7d0';
+    case 'water': return mapToPalette('#3b82f6');
+    case 'rock': return mapToPalette('#9ca3af');
+    case 'forest': return mapToPalette('#16a34a');
+    default: return mapToPalette('#bbf7d0');
   }
 }
 
