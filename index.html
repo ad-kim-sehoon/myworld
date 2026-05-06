@@ -10,8 +10,15 @@
   <canvas id="screen"></canvas>
   <div id="ui">
     <div id="title">오픈월드 프로토타입 — 터치 또는 방향키로 이동</div>
-    <div id="hint">모바일: 화면을 터치하면 그쪽으로 이동합니다.</div>
+    <div id="hint">모바일: 화면을 터치하거나 조이스틱으로 이동합니다.</div>
   </div>
+
+  <!-- Virtual joystick (visible on touch devices) -->
+  <div id="joystick" aria-hidden="true">
+    <div id="joy-base"></div>
+    <div id="joy-stick"></div>
+  </div>
+
   <script src="main.js"></script>
 </body>
 </html>
