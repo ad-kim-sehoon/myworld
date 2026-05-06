@@ -12,4 +12,6 @@ description: "Project coding guidelines and pre-work checklist. Load this skill 
 - 동작: 규약을 읽고 해당 작업에서 특히 주의해야 할 항목(포맷터, 브랜치 네이밍, 테스트 요구 등)을 한 문단으로 요약해 사용자에게 확인을 요청.
 - 묻기: 규약에서 불명확한 부분이 있거나 선택지가 필요한 경우(예: 포맷터 설정 변경, 커밋 스타일 등) 한 가지 질문으로 묻기.
 
+중요: 코드 주석은 한국어로 작성할 것 — 사람이 이해할 수 있도록 의도와 동작, 입력/출력, 가정사항을 한국어로 명확히 남기되 과도하게 장황하지 않게 유지합니다.
+
 참고 자료: references/CODING_GUIDELINES.md
