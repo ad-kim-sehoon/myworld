@@ -1,0 +1,35 @@
+name: Set repository public and enable Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  set_public:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Make repository public
+        env:
+          GH_TOKEN: ${{ secrets.ACTIONS_MONITOR_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          OWNER=$(echo "$REPO" | cut -d/ -f1)
+          REPO_NAME=$(echo "$REPO" | cut -d/ -f2)
+          echo "Setting $OWNER/$REPO_NAME to public"
+          API_URL="https://api.github.com/repos/$OWNER/$REPO_NAME"
+          curl -sS -X PATCH -H "Accept: application/vnd.github+json" -H "Authorization: token $GH_TOKEN" -d '{"private":false}' "$API_URL" | sed -n '1,200p' || true
+
+      - name: Enable Pages site on gh-pages branch
+        env:
+          GH_TOKEN: ${{ secrets.ACTIONS_MONITOR_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          OWNER=$(echo "$REPO" | cut -d/ -f1)
+          REPO_NAME=$(echo "$REPO" | cut -d/ -f2)
+          echo "Enabling Pages for $OWNER/$REPO_NAME -> gh-pages branch"
+          API_URL="https://api.github.com/repos/$OWNER/$REPO_NAME/pages"
+          DATA='{"source":{"branch":"gh-pages","path":"/"}}'
+          curl -sS -X PUT -H "Accept: application/vnd.github+json" -H "Authorization: token $GH_TOKEN" -d "$DATA" "$API_URL" | sed -n '1,200p' || true
