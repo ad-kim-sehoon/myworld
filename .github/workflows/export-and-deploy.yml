@@ -9,18 +9,22 @@ jobs:
     name: Export Godot and deploy to GitHub Pages
     runs-on: ubuntu-latest
     env:
-      GODOT_VERSION: '4.1.0'
+      GODOT_VERSION: '0.0.0-invalid-trigger'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: "Debug: print environment"
+      - name: "Debug: print environment + trigger heredoc"
         run: |
           echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
           echo "Runner: $(uname -a)"
           echo "Java: $(java -version 2>&1 | head -n 1 || true)"
           echo "Node: $(node --version 2>&1 || true)"
+          # This heredoc is intentionally added to trigger the auto-fix scanner
+          cat > /tmp/ci_trigger_heredoc.txt <<'EOF'
+          AUTOFIX_TRIGGER
+          EOF
 
       - name: List repo and godot folder (diagnostic)
         run: |
