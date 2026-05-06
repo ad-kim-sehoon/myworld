@@ -1,0 +1,96 @@
+name: Credit-aware autofix escalation
+
+on:
+  workflow_run:
+    workflows: ["Export and Deploy Godot (HTML5)"]
+    types: [completed]
+
+jobs:
+  credit_check_and_escalate:
+    name: Credit-aware escalation and model selection
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Count merged autofix PRs since original run
+        id: count_prs
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const run = github.event.workflow_run
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const originalCreated = new Date(run.created_at).getTime()
+            const prs = await github.rest.pulls.list({ owner, repo, state: 'closed', per_page: 100 })
+            let count = 0
+            for (const p of prs.data) {
+              if (!p.head || !p.head.ref) continue
+              if (!p.head.ref.startsWith('autofix/')) continue
+              if (!p.merged_at) continue
+              const mergedTs = new Date(p.merged_at).getTime()
+              if (mergedTs > originalCreated) count++
+            }
+            core.info(`Merged autofix PRs since original run: ${count}`)
+            return { count };
+
+      - name: Decide model and possibly consume credits
+        id: decide_and_charge
+        run: |
+          set -euo pipefail
+          COUNT=${{ steps.count_prs.outputs.result }}
+          echo "merged_autofix_prs=$COUNT"
+          THRESH=5
+          HIGH_COST_MODEL="gpt-5"
+          LOW_COST_MODEL="gpt5mini"
+          HIGH_COST_PER_ATTEMPT=3
+
+          if [ "$COUNT" -lt "$THRESH" ]; then
+            echo "needs_escalation=false" >> $GITHUB_OUTPUT
+            echo "model=$LOW_COST_MODEL" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Read credits file
+          if [ ! -f docs/credits.json ]; then
+            echo '{"total_credits":100, "used_credits":0}' > docs/credits.json
+          fi
+
+          total=$(python3 -c "import json,sys;print(json.load(open('docs/credits.json'))['total_credits'])")
+          used=$(python3 -c "import json,sys;print(json.load(open('docs/credits.json'))['used_credits'])")
+          echo "Credits total=$total used=$used"
+
+          used_percent=$(( used*100 / total ))
+          echo "used_percent=$used_percent"
+
+          if [ "$used_percent" -ge 95 ]; then
+            # fallback to low-cost model
+            echo "Selecting low-cost model because used_percent >=95%" >&2
+            echo "needs_escalation=false" >> $GITHUB_OUTPUT
+            echo "model=$LOW_COST_MODEL" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Charge credits for high-cost attempt
+          new_used=$((used + HIGH_COST_PER_ATTEMPT))
+          python3 - <<PY
+import json
+p='docs/credits.json'
+with open(p,'r') as f:
+    j=json.load(f)
+j['used_credits'] = %d
+with open(p,'w') as f:
+    json.dump(j,f,indent=2)
+print('updated credits to',%d)
+PY
+          # commit back the credits file so state persists
+          git add docs/credits.json
+          git commit -m "ci(credits): charge %d credits for high-cost diagnostic attempt" || true
+          git push origin HEAD:refs/heads/credit-update-$(date +%%s) || true
+
+          echo "needs_escalation=true" >> $GITHUB_OUTPUT
+          echo "model=$HIGH_COST_MODEL" >> $GITHUB_OUTPUT
