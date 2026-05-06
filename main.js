@@ -156,9 +156,9 @@ function hasTreeAt(tx,ty){
   return (hash2(tx,ty) % 10) < 2; // ~20% density
 }
 function tileBlocked(tx,ty){
+  // only fully blocked tiles: water and rock
   const t = tileTypeAt(tx,ty);
   if(t === 'water' || t === 'rock') return true;
-  if(t === 'forest' && hasTreeAt(tx,ty)) return true;
   return false;
 }
 
@@ -206,6 +206,7 @@ window.addEventListener('pointermove', joyPointerMove);
 window.addEventListener('pointerup', joyPointerUp);
 
 // Rectangle collision: check any tile overlapped by axis-aligned rectangle is blocked
+// For trees we use a smaller circular collision around the tree center so player can pass near trunks
 function rectBlockedAtWorld(cx, cy, w, h){
   // cx,cy are center coordinates
   const left = Math.floor((cx - w/2) / TILE);
@@ -214,7 +215,23 @@ function rectBlockedAtWorld(cx, cy, w, h){
   const bottom = Math.floor((cy + h/2) / TILE);
   for(let ty = top; ty <= bottom; ty++){
     for(let tx = left; tx <= right; tx++){
-      if(tileBlocked(tx,ty)) return true;
+      const t = tileTypeAt(tx,ty);
+      if(t === 'water' || t === 'rock') return true;
+      if(t === 'forest' && hasTreeAt(tx,ty)){
+        // tree collision: circle at tile center with small radius
+        const treeCx = tx * TILE + TILE/2;
+        const treeCy = ty * TILE + TILE/2;
+        const treeRadius = Math.max(6, Math.round(SPRITE_PX * SPRITE_SCALE * 0.12));
+        // rectangle bounds
+        const rx1 = cx - w/2, ry1 = cy - h/2;
+        const rx2 = cx + w/2, ry2 = cy + h/2;
+        // closest point on rect to circle center
+        const closestX = Math.max(rx1, Math.min(treeCx, rx2));
+        const closestY = Math.max(ry1, Math.min(treeCy, ry2));
+        const dx = treeCx - closestX;
+        const dy = treeCy - closestY;
+        if(dx*dx + dy*dy <= treeRadius * treeRadius) return true;
+      }
     }
   }
   return false;
@@ -334,22 +351,53 @@ function draw(){
         ctx.fill();
       }
 
-      // draw tree on forest tiles if present (scaled to character)
+      // draw tree on forest tiles if present (scaled to character) with shadow and LOD
       if(type === 'forest' && hasTreeAt(tx,ty)){
-        // position centered on tile
+        // world position of tile center
+        const treeWorldX = tx * TILE + TILE/2;
+        const treeWorldY = ty * TILE + TILE/2;
+        const dxp = treeWorldX - player.x;
+        const dyp = treeWorldY - player.y;
+        const dist = Math.hypot(dxp, dyp);
+        // LOD thresholds (in world pixels)
+        const LOD_NEAR = 220;
+        const LOD_FAR = 420;
+        // mapping to screen coords
         const treeBaseX = Math.round(sx + TILE/2);
         const treeBaseY = Math.round(sy + TILE/2);
-        const foliageRadius = Math.max(6, Math.round(SPRITE_PX * SPRITE_SCALE * 0.35));
-        const trunkWidth = Math.max(2, Math.round(SPRITE_PX * SPRITE_SCALE * 0.12));
-        const trunkHeight = Math.max(4, Math.round(SPRITE_PX * SPRITE_SCALE * 0.22));
-        // foliage
-        ctx.fillStyle = mapToPalette('#0b6623');
+        // base sizes (visual)
+        const foliageRadiusFull = Math.max(6, Math.round(SPRITE_PX * SPRITE_SCALE * 0.35));
+        const trunkWidthFull = Math.max(2, Math.round(SPRITE_PX * SPRITE_SCALE * 0.12));
+        const trunkHeightFull = Math.max(4, Math.round(SPRITE_PX * SPRITE_SCALE * 0.22));
+
+        // shadow (subtle ellipse under tree)
+        ctx.fillStyle = 'rgba(0,0,0,0.12)';
         ctx.beginPath();
-        ctx.ellipse(treeBaseX, treeBaseY - Math.round(trunkHeight/2), foliageRadius, Math.round(foliageRadius * 0.8), 0, 0, Math.PI*2);
+        ctx.ellipse(treeBaseX, treeBaseY + Math.round(foliageRadiusFull*0.35), Math.round(foliageRadiusFull*0.9), Math.round(foliageRadiusFull*0.35), 0, 0, Math.PI*2);
         ctx.fill();
-        // trunk
-        ctx.fillStyle = mapToPalette('#8b5a2b');
-        ctx.fillRect(treeBaseX - Math.floor(trunkWidth/2), treeBaseY + Math.floor(foliageRadius * 0.2), trunkWidth, trunkHeight);
+
+        if(dist < LOD_NEAR){
+          // full detail
+          ctx.fillStyle = mapToPalette('#0b6623');
+          ctx.beginPath();
+          ctx.ellipse(treeBaseX, treeBaseY - Math.round(trunkHeightFull/2), foliageRadiusFull, Math.round(foliageRadiusFull * 0.8), 0, 0, Math.PI*2);
+          ctx.fill();
+          ctx.fillStyle = mapToPalette('#8b5a2b');
+          ctx.fillRect(treeBaseX - Math.floor(trunkWidthFull/2), treeBaseY + Math.floor(foliageRadiusFull * 0.2), trunkWidthFull, trunkHeightFull);
+        } else if(dist < LOD_FAR){
+          // medium detail: smaller foliage and thinner trunk
+          const scale = 0.6;
+          ctx.fillStyle = mapToPalette('#0b6623');
+          ctx.beginPath();
+          ctx.ellipse(treeBaseX, treeBaseY - Math.round(trunkHeightFull*scale/2), Math.round(foliageRadiusFull*scale), Math.round(foliageRadiusFull * 0.8 * scale), 0, 0, Math.PI*2);
+          ctx.fill();
+          ctx.fillStyle = mapToPalette('#8b5a2b');
+          ctx.fillRect(treeBaseX - Math.floor(trunkWidthFull*scale/2), treeBaseY + Math.floor(foliageRadiusFull * 0.2 * scale), Math.max(1, Math.round(trunkWidthFull*scale)), Math.max(2, Math.round(trunkHeightFull*scale)));
+        } else {
+          // far: tiny leaf dot only
+          ctx.fillStyle = mapToPalette('#0b6623');
+          ctx.fillRect(treeBaseX - 1, treeBaseY - 1, 2, 2);
+        }
       }
     }
   }
