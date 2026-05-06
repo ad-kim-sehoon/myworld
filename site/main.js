@@ -13,27 +13,49 @@ function resize(){
 window.addEventListener('resize', resize);
 resize();
 
-// smaller tile for denser pixels
-const TILE = 8;
-const player = {x:0,y:0,speed:120};
+// higher density tiles (TILE=4) and larger procedural hero sprite
+const TILE = 4;
+const player = {x:0,y:0,speed:100};
 let target = null;
 const keys = {};
 window.addEventListener('keydown', e => { keys[e.key] = true; });
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 
-// 8x8 pixel sprite (simple hero)
-const heroSprite = [
-  [null,null,'#000000','#000000','#000000','#000000',null,null],
-  [null,'#000000','#ffcc99','#ffcc99','#ffcc99','#ffcc99','#000000',null],
-  [null,'#ffcc99','#ffcc99','#ffcc99','#ffcc99','#ffcc99','#ffcc99',null],
-  [null,null,'#880000','#880000','#880000','#880000',null,null],
-  [null,null,'#00aa00','#00aa00','#00aa00','#00aa00',null,null],
-  [null,'#0066ff','#0066ff','#00aaee','#00aaee','#0066ff','#0066ff',null],
-  ['#000000',null,'#000000',null,null,'#000000',null,'#000000'],
-  [null,null,'#000000','#000000','#000000','#000000',null,null]
-];
-const SPRITE_PX = heroSprite.length; // 8
-const SPRITE_SCALE = 2; // each sprite pixel rendered as SCALE x SCALE canvas pixels
+// Procedural 32x32 pixel hero renderer (draws a simple person-like sprite)
+const SPRITE_PX = 32;
+const SPRITE_SCALE = 2; // displayed size: 64x64
+function renderHero(ctx, centerX, centerY){
+  const pixelSize = SPRITE_SCALE;
+  const total = SPRITE_PX * pixelSize;
+  const startX = Math.round(centerX - total/2);
+  const startY = Math.round(centerY - total/2);
+  // draw body parts using grid rules (skin/hair/shirt/pants)
+  for(let py=0; py<SPRITE_PX; py++){
+    for(let px=0; px<SPRITE_PX; px++){
+      let color = null;
+      // hair (top)
+      if(py >= 2 && py <= 6 && px >= 11 && px <= 20) color = '#2b2b2b';
+      // head/skin
+      if(py >= 6 && py <= 12 && px >= 12 && px <= 19) color = '#f5d0c5';
+      // eyes
+      if(py == 9 && (px == 14 || px == 17)) color = '#000000';
+      // mouth
+      if(py == 11 && px >= 15 && px <= 16) color = '#882222';
+      // shirt
+      if(py >= 13 && py <= 20 && px >= 10 && px <= 21) color = '#2b6cb0';
+      // arms
+      if(py >= 14 && py <= 17 && ((px >= 7 && px <= 9) || (px >= 22 && px <= 24))) color = '#2b6cb0';
+      // pants
+      if(py >= 21 && py <= 29 && ((px >= 11 && px <= 15) || (px >= 17 && px <= 21))) color = '#2b2b2b';
+      // shoes
+      if(py >= 30 && px >= 11 && px <= 21 && (px <= 13 || px >= 19)) color = '#000000';
+      if(color){
+        ctx.fillStyle = color;
+        ctx.fillRect(startX + px*pixelSize, startY + py*pixelSize, pixelSize, pixelSize);
+      }
+    }
+  }
+}
 
 canvas.addEventListener('pointerdown', e => {
   const rect = canvas.getBoundingClientRect();
@@ -224,21 +246,11 @@ function draw(){
     }
   }
 
-  // draw player sprite centered
+  // draw player (procedural 32x32 hero) centered
   const px = halfW;
   const py = halfH;
-  const pixelSize = SPRITE_SCALE;
-  const spriteTotal = SPRITE_PX * pixelSize;
-  const startX = Math.round(px - spriteTotal/2);
-  const startY = Math.round(py - spriteTotal/2);
-  for(let sy=0; sy<SPRITE_PX; sy++){
-    for(let sx=0; sx<SPRITE_PX; sx++){
-      const c = heroSprite[sy][sx];
-      if(!c) continue;
-      ctx.fillStyle = c;
-      ctx.fillRect(startX + sx*pixelSize, startY + sy*pixelSize, pixelSize, pixelSize);
-    }
-  }
+  ctx.imageSmoothingEnabled = false;
+  renderHero(ctx, px, py);
 
   // debug HUD
   ctx.fillStyle = 'rgba(255,255,255,0.8)';
