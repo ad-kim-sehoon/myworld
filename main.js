@@ -152,9 +152,9 @@ function tileColor(type){
 // Tree placement: deterministic; trees appear on some forest tiles
 // Tree density & types with regional modifiers
 const TREE_GLOBAL_DENSITY = 4; // percent (base density)
-let TREE_GLOBAL_SCALE = 0.02; // global scale multiplier (0.02 keeps ~2% of previous trees — very aggressive pruning)
+let TREE_GLOBAL_SCALE = 0.2; // global scale multiplier (0.2 keeps ~20% of previous trees)
 // Decoration scale (controls how many small decorative pixels/objects are drawn)
-let DECOR_GLOBAL_SCALE = 0.0; // 0.0 => draw 0% of decorative pixels (disable decorative objects)
+let DECOR_GLOBAL_SCALE = 0.2; // 0.2 => draw ~20% of decorative pixels
 // Quickly reduce object counts by multiplying TREE_GLOBAL_SCALE (e.g., 0.2 removes ~80%)
 function regionDensityModifier(tx,ty){
   // Simple region rules to create paths and clearings
@@ -261,7 +261,7 @@ window.addEventListener('pointerup', joyPointerUp);
 // Rectangle collision: check any tile overlapped by axis-aligned rectangle is blocked
 // For trees we use a smaller circular collision around the tree center so player can pass near trunks
 // Improvements: allow a small sparse set of explicit obstacles and keep only a tiny fraction collidable
-const TREE_COLLIDABLE_PERCENT = 5; // % of large trees that are solid (very few block)
+const TREE_COLLIDABLE_PERCENT = 25; // % of large trees that are solid
 const TREE_COLLIDE_IGNORE_DIST = 360; // world pixels beyond which tree collision is ignored
 const OBSTACLE_GLOBAL_DENSITY = 3; // percent chance for placed obstacle anchors
 function placeObstacleAt(tx,ty){
@@ -438,11 +438,10 @@ function draw(){
       if(type === 'forest' && hasTreeAt(tx,ty)){
         // optionally skip rendering of many small decorative trees to reduce clutter
         const ttype = treeTypeAt(tx,ty);
-        if(ttype === 'small'){
-          // skip drawing small decorative trees entirely in ultra-prune mode
-          continue;
-        }
-        // world position of tile center
+        if(ttype === 'small' && ((hash2(tx,ty+31) % 100) >= Math.round(DECOR_GLOBAL_SCALE * 100))){
+          // skip drawing this decorative small tree
+        } else {
+          // world position of tile center
           const treeWorldX = tx * TILE + TILE/2;
           const treeWorldY = ty * TILE + TILE/2;
           const dxp = treeWorldX - player.x;
