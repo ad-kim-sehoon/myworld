@@ -17,6 +17,50 @@ resize();
 // higher density tiles (TILE=4) and larger procedural hero sprite
 const TILE = 4;
 const DEBUG_COLLISION = true;
+// --- DEBUG OVERLAY (for mobile) ---
+function createDebugOverlay(){
+  try{
+    const d = document.createElement('div');
+    d.id = 'debug-pane';
+    d.style.position = 'fixed';
+    d.style.left = '8px';
+    d.style.bottom = '8px';
+    d.style.maxWidth = '360px';
+    d.style.maxHeight = '200px';
+    d.style.overflow = 'auto';
+    d.style.background = 'rgba(0,0,0,0.6)';
+    d.style.color = '#fff';
+    d.style.fontSize = '12px';
+    d.style.padding = '6px';
+    d.style.borderRadius = '6px';
+    d.style.zIndex = 999999;
+    d.style.backdropFilter = 'blur(2px)';
+    d.style.pointerEvents = 'none';
+    d.innerHTML = '<strong style="font-size:12px">DEBUG</strong><div id="debug-messages"></div>';
+    document.body.appendChild(d);
+  }catch(e){}
+}
+function debugMsg(text, obj){
+  try{
+    const now = new Date().toLocaleTimeString();
+    if(typeof console !== 'undefined' && console.debug) console.debug('[DBG]', text, obj||'');
+        try{ debugMsg('[DBG]', text, obj||''); }catch(e){};
+    const container = document.getElementById('debug-messages') || null;
+    if(!container){ createDebugOverlay(); }
+    const cont = document.getElementById('debug-messages');
+    if(!cont) return;
+    const entry = document.createElement('div');
+    entry.style.marginTop = '6px';
+    entry.style.pointerEvents = 'auto';
+    entry.textContent = now + ' — ' + text + (obj? ' ' + JSON.stringify(obj): '');
+    cont.appendChild(entry);
+    // trim to last 12
+    while(cont.childNodes.length > 12) cont.removeChild(cont.firstChild);
+  }catch(e){}
+}
+// create overlay early if DOM ready
+if(document.readyState === 'complete' || document.readyState === 'interactive') createDebugOverlay(); else window.addEventListener('DOMContentLoaded', createDebugOverlay);
+
 const player = {x:0,y:0,vx:0,vy:0,maxSpeed:100,accel:800, walkFrame:0, walkTimer:0, walkFrames:6, facing:0};
 let target = null;
 const keys = {};
@@ -293,20 +337,23 @@ function rectBlockedReason(cx, cy, w, h){
       const t = tileTypeAt(tx,ty);
       if(t === 'water' || t === 'rock'){
         if(DEBUG_COLLISION) console.debug('rectBlockedReason: blocked by tile', {tx,ty,type:t,cx,cy,w,h});
+        try{ debugMsg('rectBlockedReason: blocked by tile', {tx,ty,type:t,cx,cy,w,h}); }catch(e){};
         return {blocked:true, reason:'tile', info:{tx,ty,type:t}};
       }
       if(t === 'forest' && (hasTreeAt(tx,ty) || placeObstacleAt(tx,ty))){
         const hasTree = hasTreeAt(tx,ty);
         const placed = placeObstacleAt(tx,ty);
         const collidable = isTreeCollidable(tx,ty);
-        if(!collidable) { if(DEBUG_COLLISION) console.debug('rectBlockedReason: decorative tree or non-collidable', {tx,ty,hasTree,placed}); continue; }
+        if(!collidable) { if(DEBUG_COLLISION) console.debug('rectBlockedReason: decorative tree or non-collidable', {tx,ty,hasTree,placed});
+        try{ debugMsg('rectBlockedReason: decorative tree or non-collidable', {tx,ty,hasTree,placed}); }catch(e){}; continue; }
         const treeCx = tx * TILE + TILE/2;
         const treeCy = ty * TILE + TILE/2;
         const treeRadius = Math.max(4, Math.round(SPRITE_PX * SPRITE_SCALE * 0.12));
         const dxp = treeCx - cx;
         const dyp = treeCy - cy;
         const distToPoint = Math.hypot(dxp, dyp);
-        if(distToPoint > TREE_COLLIDE_IGNORE_DIST) { if(DEBUG_COLLISION) console.debug('rectBlockedReason: tree too far from test point', {tx,ty,distToPoint}); continue; }
+        if(distToPoint > TREE_COLLIDE_IGNORE_DIST) { if(DEBUG_COLLISION) console.debug('rectBlockedReason: tree too far from test point', {tx,ty,distToPoint});
+        try{ debugMsg('rectBlockedReason: tree too far from test point', {tx,ty,distToPoint}); }catch(e){}; continue; }
         const rx1 = cx - w/2, ry1 = cy - h/2;
         const rx2 = cx + w/2, ry2 = cy + h/2;
         const closestX = Math.max(rx1, Math.min(treeCx, rx2));
@@ -315,6 +362,7 @@ function rectBlockedReason(cx, cy, w, h){
         const dy = treeCy - closestY;
         if(dx*dx + dy*dy <= treeRadius * treeRadius){
           if(DEBUG_COLLISION) console.debug('rectBlockedReason: blocked by tree', {tx,ty,treeRadius,dx,dy});
+        try{ debugMsg('rectBlockedReason: blocked by tree', {tx,ty,treeRadius,dx,dy}); }catch(e){};
           return {blocked:true, reason:'tree', info:{tx,ty,treeRadius,dx,dy}};
         }
       }
@@ -375,7 +423,8 @@ function update(dt){
     player.x = newX;
   } else {
     player.vx = 0;
-    if(DEBUG_COLLISION) console.debug('movement X blocked', resX);
+    if(DEBUG_COLLISION) console.debug('movement X blocked', resX); try{ debugMsg('movement X blocked', resX); }catch(e){};
+        try{ debugMsg('movement X blocked', resX); }catch(e){};
   }
   // Y
   const newY = player.y + player.vy * dt;
@@ -384,7 +433,8 @@ function update(dt){
     player.y = newY;
   } else {
     player.vy = 0;
-    if(DEBUG_COLLISION) console.debug('movement Y blocked', resY);
+    if(DEBUG_COLLISION) console.debug('movement Y blocked', resY); try{ debugMsg('movement Y blocked', resY); }catch(e){};
+        try{ debugMsg('movement Y blocked', resY); }catch(e){};
   }
 
   // update facing based on horizontal velocity (smooth)
