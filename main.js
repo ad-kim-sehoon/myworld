@@ -15,20 +15,24 @@ resize();
 
 // higher density tiles (TILE=4) and larger procedural hero sprite
 const TILE = 4;
-const player = {x:0,y:0,speed:100, walkFrame:0, walkTimer:0};
+const player = {x:0,y:0,vx:0,vy:0,maxSpeed:100,accel:800, walkFrame:0, walkTimer:0, facing:0};
 let target = null;
 const keys = {};
 window.addEventListener('keydown', e => { keys[e.key] = true; });
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 
-// Procedural 32x32 pixel hero renderer with 2-frame walk animation (palette-mapped)
+// Procedural 32x32 pixel hero renderer with frame and flip support (palette-mapped)
 const SPRITE_PX = 32;
 const SPRITE_SCALE = 2; // displayed size: 64x64
-function renderHero(ctx, centerX, centerY, frame = 0){
+function renderHero(ctx, centerX, centerY, frame = 0, flip = false, bob = 0){
   const pixelSize = SPRITE_SCALE;
   const total = SPRITE_PX * pixelSize;
-  const startX = Math.round(centerX - total/2);
-  const startY = Math.round(centerY - total/2);
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.translate(centerX, centerY + bob);
+  if(flip) ctx.scale(-1,1);
+  const startX = Math.round(-total/2);
+  const startY = Math.round(-total/2);
   // draw body parts using grid rules (skin/hair/shirt/pants)
   for(let py=0; py<SPRITE_PX; py++){
     for(let px=0; px<SPRITE_PX; px++){
@@ -75,6 +79,7 @@ function renderHero(ctx, centerX, centerY, frame = 0){
       }
     }
   }
+  ctx.restore();
 }
 
 canvas.addEventListener('pointerdown', e => {
@@ -200,51 +205,31 @@ joy.addEventListener('pointerdown', joyPointerDown);
 window.addEventListener('pointermove', joyPointerMove);
 window.addEventListener('pointerup', joyPointerUp);
 
-// Movement with axis-separated collision against tile blocks (trees, rock, water)
-function isBlockedAtWorld(x,y){
-  const tx = Math.floor(x / TILE);
-  const ty = Math.floor(y / TILE);
-  return tileBlocked(tx,ty);
+// Rectangle collision: check any tile overlapped by axis-aligned rectangle is blocked
+function rectBlockedAtWorld(cx, cy, w, h){
+  // cx,cy are center coordinates
+  const left = Math.floor((cx - w/2) / TILE);
+  const right = Math.floor((cx + w/2) / TILE);
+  const top = Math.floor((cy - h/2) / TILE);
+  const bottom = Math.floor((cy + h/2) / TILE);
+  for(let ty = top; ty <= bottom; ty++){
+    for(let tx = left; tx <= right; tx++){
+      if(tileBlocked(tx,ty)) return true;
+    }
+  }
+  return false;
 }
 
 function update(dt){
-  let vx = 0, vy = 0;
-  // keyboard
-  if(keys['ArrowUp'] || keys['w']) vy -= 1;
-  if(keys['ArrowDown'] || keys['s']) vy += 1;
-  if(keys['ArrowLeft'] || keys['a']) vx -= 1;
-  if(keys['ArrowRight'] || keys['d']) vx += 1;
+  // determine desired input vector
+  let inx = 0, iny = 0;
+  if(keys['ArrowUp'] || keys['w']) iny -= 1;
+  if(keys['ArrowDown'] || keys['s']) iny += 1;
+  if(keys['ArrowLeft'] || keys['a']) inx -= 1;
+  if(keys['ArrowRight'] || keys['d']) inx += 1;
+  if(joystickActive){ inx = joyVector.x; iny = joyVector.y; }
 
-  // joystick overrides if active
-  if(joystickActive){
-    vx = joyVector.x;
-    vy = joyVector.y;
-  }
-
-  // compute proposed movement
-  if(vx !== 0 || vy !== 0){
-    const len = Math.hypot(vx,vy) || 1;
-    const nx = vx / len;
-    const ny = vy / len;
-    const moveX = nx * player.speed * dt;
-    const moveY = ny * player.speed * dt;
-
-    // axis-separated collision: try X, then Y
-    let newX = player.x + moveX;
-    if(!isBlockedAtWorld(newX, player.y)){
-      player.x = newX;
-    }
-    let newY = player.y + moveY;
-    if(!isBlockedAtWorld(player.x, newY)){
-      player.y = newY;
-    }
-    // update walk animation (advance every 0.18s)
-    player.walkTimer += dt;
-    if(player.walkTimer > 0.18){ player.walkFrame = (player.walkFrame+1) % 2; player.walkTimer = 0; }
-    target = null;
-    return;
-  }
-
+  // if pointer target exists, override input towards target (screen -> world)
   if(target){
     const screenCenterX = window.innerWidth/2;
     const screenCenterY = window.innerHeight/2;
@@ -257,21 +242,57 @@ function update(dt){
     const dirx = desiredX - player.x;
     const diry = desiredY - player.y;
     const dist = Math.hypot(dirx,diry);
-    if(dist > 4){
-      const nx = dirx / dist;
-      const ny = diry / dist;
-      const moveX = nx * player.speed * dt;
-      const moveY = ny * player.speed * dt;
-      let newX = player.x + moveX;
-      if(!isBlockedAtWorld(newX, player.y)) player.x = newX;
-      let newY = player.y + moveY;
-      if(!isBlockedAtWorld(player.x, newY)) player.y = newY;
-      // walking animation for target-driven movement
-      player.walkTimer += dt;
-      if(player.walkTimer > 0.18){ player.walkFrame = (player.walkFrame+1) % 2; player.walkTimer = 0; }
-    } else {
-      target = null;
-    }
+    if(dist > 4){ inx = dirx/dist; iny = diry/dist; }
+    else { target = null; inx = 0; iny = 0; }
+  }
+
+  // desired velocity
+  const desiredSpeed = Math.hypot(inx, iny) > 0 ? Math.min(1, Math.hypot(inx,iny)) * player.maxSpeed : 0;
+  const desiredVx = desiredSpeed * (inx === 0 && iny === 0 ? 0 : inx / (Math.hypot(inx,iny) || 1));
+  const desiredVy = desiredSpeed * (inx === 0 && iny === 0 ? 0 : iny / (Math.hypot(inx,iny) || 1));
+
+  // accelerate towards desired velocity
+  const ax = desiredVx - player.vx;
+  const ay = desiredVy - player.vy;
+  const maxDelta = player.accel * dt;
+  const deltaVx = Math.max(-maxDelta, Math.min(maxDelta, ax));
+  const deltaVy = Math.max(-maxDelta, Math.min(maxDelta, ay));
+  player.vx += deltaVx;
+  player.vy += deltaVy;
+
+  // attempt movement with axis-separated rectangle collision using player's bbox
+  const w = SPRITE_PX * SPRITE_SCALE * 0.6; // narrower collision box than sprite for natural feel
+  const h = SPRITE_PX * SPRITE_SCALE * 0.9;
+
+  // X
+  const newX = player.x + player.vx * dt;
+  if(!rectBlockedAtWorld(newX, player.y, w, h)){
+    player.x = newX;
+  } else {
+    player.vx = 0;
+  }
+  // Y
+  const newY = player.y + player.vy * dt;
+  if(!rectBlockedAtWorld(player.x, newY, w, h)){
+    player.y = newY;
+  } else {
+    player.vy = 0;
+  }
+
+  // update facing based on horizontal velocity (smooth)
+  if(Math.abs(player.vx) > 5) player.facing = player.vx < 0 ? 1 : 0;
+
+  // update walk animation speed based on current speed ratio
+  const speed = Math.hypot(player.vx, player.vy);
+  const speedRatio = Math.min(1, speed / player.maxSpeed);
+  const framePeriod = 0.28 - 0.2 * speedRatio; // faster when moving faster
+  if(speed > 1){
+    player.walkTimer += dt;
+    if(player.walkTimer > framePeriod){ player.walkFrame = (player.walkFrame+1) % 2; player.walkTimer = 0; }
+  } else {
+    // idle reset
+    player.walkTimer = 0;
+    player.walkFrame = 0;
   }
 }
 
@@ -312,19 +333,22 @@ function draw(){
     }
   }
 
-  // draw player (procedural 32x32 hero) centered
+  // draw player (procedural 32x32 hero) centered with bob & facing
   const px = halfW;
   const py = halfH;
-  ctx.imageSmoothingEnabled = false;
-  renderHero(ctx, px, py, player.walkFrame);
+  const speed = Math.hypot(player.vx || 0, player.vy || 0);
+  const speedRatio = Math.min(1, speed / player.maxSpeed);
+  const bob = Math.sin((performance.now()/1000) * 8) * (speedRatio * 2);
+  renderHero(ctx, px, py, player.walkFrame, !!player.facing, bob);
 
   // debug HUD
-  ctx.fillStyle = 'rgba(255,255,255,0.8)';
-  ctx.fillRect(10,10,300,56);
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fillRect(10,10,340,64);
   ctx.fillStyle = '#0b1220';
   ctx.font = '12px system-ui';
   ctx.fillText('Player: ('+player.x.toFixed(0)+', '+player.y.toFixed(0)+')', 18, 28);
   ctx.fillText('Tile: ('+Math.floor(player.x/TILE)+', '+Math.floor(player.y/TILE)+')', 18, 44);
+  ctx.fillText('Speed: '+Math.round(speed), 18, 60);
 }
 
 let last = performance.now();
