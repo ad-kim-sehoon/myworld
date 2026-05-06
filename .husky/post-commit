@@ -1,0 +1,5 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Run the update_worklog script to record SKILL.md changes
+scripts/update_worklog_from_skill.sh
