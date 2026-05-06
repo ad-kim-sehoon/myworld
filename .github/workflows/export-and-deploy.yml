@@ -162,24 +162,40 @@ jobs:
 
       - name: Check export output
         run: |
+          DIAG_DIR=godot/diagnostics
+          mkdir -p "$DIAG_DIR"
+          DIAG_FILE="$DIAG_DIR/export_diagnostic.txt"
+          echo "=== Export diagnostic ===" > "$DIAG_FILE"
           if [ -d "godot/build/html5" ] && [ "$(ls -A godot/build/html5 2>/dev/null | wc -l)" -gt 0 ]; then
-            echo "Export directory present and not empty"
-            ls -la godot/build/html5 || true
+            echo "Export directory present and not empty" | tee -a "$DIAG_FILE"
+            ls -la godot/build/html5 | tee -a "$DIAG_FILE" || true
           else
-            echo "Export failed or output missing — collecting diagnostics"
-            echo "-- current dir --"
-            ls -la || true
-            echo "-- godot dir --"
-            ls -la godot || true
-            echo "-- show export_presets.cfg --"
-            sed -n '1,200p' godot/export_presets.cfg || true
-            echo "-- show project.godot --"
-            sed -n '1,200p' godot/project.godot || true
-            echo "--- workspace disk usage ---"
-            du -sh . || true
-            # Fail the job so we can see the logs in GitHub Actions UI
+            echo "Export failed or output missing — collecting diagnostics" | tee -a "$DIAG_FILE"
+            echo "-- current dir --" | tee -a "$DIAG_FILE"
+            ls -la | sed -n '1,200p' | tee -a "$DIAG_FILE" || true
+            echo "-- godot dir --" | tee -a "$DIAG_FILE"
+            ls -la godot | sed -n '1,200p' | tee -a "$DIAG_FILE" || true
+            echo "-- show export_presets.cfg --" | tee -a "$DIAG_FILE"
+            sed -n '1,200p' godot/export_presets.cfg | tee -a "$DIAG_FILE" || true
+            echo "-- show project.godot --" | tee -a "$DIAG_FILE"
+            sed -n '1,200p' godot/project.godot | tee -a "$DIAG_FILE" || true
+            echo "--- workspace disk usage ---" | tee -a "$DIAG_FILE"
+            du -sh . | tee -a "$DIAG_FILE" || true
+            # write tail of system logs if available
+            echo "--- tail of /tmp/openclaw/openclaw-*.log (if exist) ---" | tee -a "$DIAG_FILE"
+            tail -n 200 /tmp/openclaw/openclaw-*.log 2>/dev/null | sed -n '1,200p' | tee -a "$DIAG_FILE" || true
+            # Also include last 500 lines of runner syslog if available
+            echo "--- end diagnostic ---" >> "$DIAG_FILE"
+            # Fail the step so subsequent upload (if: failure()) runs
             exit 1
           fi
+      
+      - name: Upload diagnostics artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: export-diagnostics
+          path: godot/diagnostics
 
       - name: Publish to gh-pages (peaceiris)
         if: success()
