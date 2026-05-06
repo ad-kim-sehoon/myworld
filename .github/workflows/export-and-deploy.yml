@@ -8,16 +8,61 @@ jobs:
   export_and_deploy:
     name: Export Godot and deploy to GitHub Pages
     runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: '4.1.0'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare environment (install prerequisites)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget unzip
+          echo "GODOT_VERSION=$GODOT_VERSION"
+
+      - name: Ensure export_presets.cfg exists
+        run: |
+          if [ ! -f godot/export_presets.cfg ]; then
+            echo "No export_presets.cfg found — creating a simple HTML5 preset"
+            mkdir -p godot
+            cat > godot/export_presets.cfg <<'EOF'
+[preset.0]
+name="HTML5"
+platform="HTML5"
+preset="HTML5"
+export_path="build/html5"
+export_filter=""
+runnable=false
+remote=false
+EOF
+          else
+            echo "export_presets.cfg found"
+          fi
+
+      - name: (Optional) Install Godot export templates (best-effort)
+        run: |
+          # Try to download Godot export templates for the requested version (best-effort).
+          # This step is optional — some export actions will manage templates themselves.
+          set -e
+          TPL_URL="https://downloads.tuxfamily.org/godotengine/${GODOT_VERSION}/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          echo "Attempting to download export templates from: $TPL_URL"
+          mkdir -p ~/.config/godot
+          if curl --head --fail "$TPL_URL" >/dev/null 2>&1; then
+            curl -L "$TPL_URL" -o /tmp/export_templates.tpz
+            mkdir -p ~/.local/share/godot/templates
+            tar -xzf /tmp/export_templates.tpz -C ~/.local/share/godot/templates || true
+            echo "Export templates downloaded and extracted (best-effort)"
+          else
+            echo "Export templates not available at $TPL_URL — continuing and relying on export action to handle templates"
+          fi
+        continue-on-error: true
+
       - name: Export HTML5 (Godot)
         uses: firebelley/godot-html-export@v1
         with:
           working-directory: godot
-          godot-version: '4.1.0'
+          godot-version: ${{ env.GODOT_VERSION }}
           godot-create-export-preset-cfg: 'true'
 
       - name: Upload Pages Artifact
