@@ -15,13 +15,13 @@ resize();
 
 // higher density tiles (TILE=4) and larger procedural hero sprite
 const TILE = 4;
-const player = {x:0,y:0,vx:0,vy:0,maxSpeed:100,accel:800, walkFrame:0, walkTimer:0, facing:0};
+const player = {x:0,y:0,vx:0,vy:0,maxSpeed:100,accel:800, walkFrame:0, walkTimer:0, walkFrames:6, facing:0};
 let target = null;
 const keys = {};
 window.addEventListener('keydown', e => { keys[e.key] = true; });
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 
-// Procedural 32x32 pixel hero renderer with frame and flip support (palette-mapped)
+// Procedural 32x32 pixel hero renderer with multi-frame walk animation and flip (palette-mapped)
 const SPRITE_PX = 32;
 const SPRITE_SCALE = 2; // displayed size: 64x64
 function renderHero(ctx, centerX, centerY, frame = 0, flip = false, bob = 0){
@@ -33,7 +33,12 @@ function renderHero(ctx, centerX, centerY, frame = 0, flip = false, bob = 0){
   if(flip) ctx.scale(-1,1);
   const startX = Math.round(-total/2);
   const startY = Math.round(-total/2);
-  // draw body parts using grid rules (skin/hair/shirt/pants)
+
+  // per-frame offsets to simulate smoother limb movement (6 frames)
+  const armShift = [0,-1, -2, -1, 1, 0];
+  const armShiftRight = [0,1,2,1,-1,0];
+  const legShift = [0,-1, -2, -1, 1, 0];
+
   for(let py=0; py<SPRITE_PX; py++){
     for(let px=0; px<SPRITE_PX; px++){
       let color = null;
@@ -46,27 +51,21 @@ function renderHero(ctx, centerX, centerY, frame = 0, flip = false, bob = 0){
       // mouth
       if(py == 11 && px >= 15 && px <= 16) color = '#882222';
 
-      // shirt
+      // shirt (body)
       if(py >= 13 && py <= 20 && px >= 10 && px <= 21) color = '#2b6cb0';
 
-      // arms: change position slightly based on frame to simulate swing
+      // arms: use frame shifts
       if(py >= 14 && py <= 17){
-        if(frame === 0){
-          if((px >= 7 && px <= 9) || (px >= 22 && px <= 24)) color = '#2b6cb0';
-        } else {
-          // swing arms: left arm moves down, right arm moves up
-          if((px >= 6 && px <= 8) || (px >= 23 && px <= 25)) color = '#2b6cb0';
-        }
+        const ls = armShift[frame];
+        const rs = armShiftRight[frame];
+        if((px >= 7+ls && px <= 9+ls) || (px >= 22+rs && px <= 24+rs)) color = '#2b6cb0';
       }
 
-      // pants and legs: shift leg pixels for walking frames
+      // pants and legs: shifted per frame
       if(py >= 21 && py <= 29){
-        if(frame === 0){
-          if((px >= 11 && px <= 15) || (px >= 17 && px <= 21)) color = '#2b2b2b';
-        } else {
-          // alternate leg positions
-          if((px >= 10 && px <= 14) || (px >= 18 && px <= 22)) color = '#2b2b2b';
-        }
+        const lshift = legShift[frame];
+        const rshift = -legShift[frame];
+        if((px >= 11 + lshift && px <= 15 + lshift) || (px >= 17 + rshift && px <= 21 + rshift)) color = '#2b2b2b';
       }
 
       // shoes
@@ -285,10 +284,11 @@ function update(dt){
   // update walk animation speed based on current speed ratio
   const speed = Math.hypot(player.vx, player.vy);
   const speedRatio = Math.min(1, speed / player.maxSpeed);
-  const framePeriod = 0.28 - 0.2 * speedRatio; // faster when moving faster
+  const basePeriod = 0.28 - 0.18 * speedRatio; // base cycle period
+  const framePeriod = basePeriod / Math.max(1, player.walkFrames);
   if(speed > 1){
     player.walkTimer += dt;
-    if(player.walkTimer > framePeriod){ player.walkFrame = (player.walkFrame+1) % 2; player.walkTimer = 0; }
+    if(player.walkTimer > framePeriod){ player.walkFrame = (player.walkFrame+1) % player.walkFrames; player.walkTimer = 0; }
   } else {
     // idle reset
     player.walkTimer = 0;
