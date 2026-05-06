@@ -15,10 +15,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Debug: print environment
+        run: |
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          echo "Runner: $(uname -a)"
+          echo "Java: $(java -version 2>&1 | head -n 1 || true)"
+          echo "Node: $(node --version 2>&1 || true)"
+
+      - name: List repo and godot folder (diagnostic)
+        run: |
+          echo "-- top-level --"
+          ls -la || true
+          echo "-- godot/ --"
+          ls -la godot || true
+          echo "-- show export_presets.cfg (if present) --"
+          if [ -f godot/export_presets.cfg ]; then
+            sed -n '1,200p' godot/export_presets.cfg || true
+          else
+            echo "(no export_presets.cfg)"
+          fi
+          echo "-- show project.godot --"
+          if [ -f godot/project.godot ]; then
+            sed -n '1,200p' godot/project.godot || true
+          else
+            echo "(no project.godot)"
+          fi
+
       - name: Prepare environment (install prerequisites)
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget unzip
+          sudo apt-get install -y wget unzip curl
           echo "GODOT_VERSION=$GODOT_VERSION"
 
       - name: Ensure export_presets.cfg exists
@@ -42,8 +68,6 @@ EOF
 
       - name: (Optional) Install Godot export templates (best-effort)
         run: |
-          # Try to download Godot export templates for the requested version (best-effort).
-          # This step is optional — some export actions will manage templates themselves.
           set -e
           TPL_URL="https://downloads.tuxfamily.org/godotengine/${GODOT_VERSION}/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           echo "Attempting to download export templates from: $TPL_URL"
@@ -58,17 +82,42 @@ EOF
           fi
         continue-on-error: true
 
-      - name: Export HTML5 (Godot)
+      - name: Export HTML5 (Godot) — run and allow diagnostics on failure
+        id: export_step
+        continue-on-error: true
         uses: firebelley/godot-html-export@v1
         with:
           working-directory: godot
           godot-version: ${{ env.GODOT_VERSION }}
           godot-create-export-preset-cfg: 'true'
 
+      - name: Check export output
+        run: |
+          if [ -d "godot/build/html5" ] && [ "$(ls -A godot/build/html5 2>/dev/null | wc -l)" -gt 0 ]; then
+            echo "Export directory present and not empty"
+            ls -la godot/build/html5 || true
+          else
+            echo "Export failed or output missing — collecting diagnostics"
+            echo "-- current dir --"
+            ls -la || true
+            echo "-- godot dir --"
+            ls -la godot || true
+            echo "-- show export_presets.cfg --"
+            sed -n '1,200p' godot/export_presets.cfg || true
+            echo "-- show project.godot --"
+            sed -n '1,200p' godot/project.godot || true
+            echo "--- workspace disk usage ---"
+            du -sh . || true
+            # Fail the job so we can see the logs in GitHub Actions UI
+            exit 1
+          fi
+
       - name: Upload Pages Artifact
+        if: success()
         uses: actions/upload-pages-artifact@v1
         with:
           path: godot/build/html5
 
       - name: Deploy to GitHub Pages
+        if: success()
         uses: actions/deploy-pages@v1
