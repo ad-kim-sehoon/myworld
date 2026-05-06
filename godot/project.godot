@@ -1,0 +1,9 @@
+[application]
+config/name="myworld"
+config/description="Open world prototype (Godot) — web export target"
+
+[display]
+width=1280
+height=720
+stretch_mode="2d"
+stretch_aspect="keep"
