@@ -147,12 +147,9 @@ jobs:
             exit 1
           fi
 
-      - name: Upload Pages Artifact
+      - name: Publish to gh-pages (peaceiris)
         if: success()
-        uses: actions/upload-pages-artifact@v1
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          path: godot/build/html5
-
-      - name: Deploy to GitHub Pages
-        if: success()
-        uses: actions/deploy-pages@v1
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: godot/build/html5
