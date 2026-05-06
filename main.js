@@ -15,16 +15,16 @@ resize();
 
 // higher density tiles (TILE=4) and larger procedural hero sprite
 const TILE = 4;
-const player = {x:0,y:0,speed:100};
+const player = {x:0,y:0,speed:100, walkFrame:0, walkTimer:0};
 let target = null;
 const keys = {};
 window.addEventListener('keydown', e => { keys[e.key] = true; });
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 
-// Procedural 32x32 pixel hero renderer (draws a simple person-like sprite)
+// Procedural 32x32 pixel hero renderer with 2-frame walk animation
 const SPRITE_PX = 32;
 const SPRITE_SCALE = 2; // displayed size: 64x64
-function renderHero(ctx, centerX, centerY){
+function renderHero(ctx, centerX, centerY, frame = 0){
   const pixelSize = SPRITE_SCALE;
   const total = SPRITE_PX * pixelSize;
   const startX = Math.round(centerX - total/2);
@@ -41,14 +41,33 @@ function renderHero(ctx, centerX, centerY){
       if(py == 9 && (px == 14 || px == 17)) color = '#000000';
       // mouth
       if(py == 11 && px >= 15 && px <= 16) color = '#882222';
+
       // shirt
       if(py >= 13 && py <= 20 && px >= 10 && px <= 21) color = '#2b6cb0';
-      // arms
-      if(py >= 14 && py <= 17 && ((px >= 7 && px <= 9) || (px >= 22 && px <= 24))) color = '#2b6cb0';
-      // pants
-      if(py >= 21 && py <= 29 && ((px >= 11 && px <= 15) || (px >= 17 && px <= 21))) color = '#2b2b2b';
+
+      // arms: change position slightly based on frame to simulate swing
+      if(py >= 14 && py <= 17){
+        if(frame === 0){
+          if((px >= 7 && px <= 9) || (px >= 22 && px <= 24)) color = '#2b6cb0';
+        } else {
+          // swing arms: left arm moves down, right arm moves up
+          if((px >= 6 && px <= 8) || (px >= 23 && px <= 25)) color = '#2b6cb0';
+        }
+      }
+
+      // pants and legs: shift leg pixels for walking frames
+      if(py >= 21 && py <= 29){
+        if(frame === 0){
+          if((px >= 11 && px <= 15) || (px >= 17 && px <= 21)) color = '#2b2b2b';
+        } else {
+          // alternate leg positions
+          if((px >= 10 && px <= 14) || (px >= 18 && px <= 22)) color = '#2b2b2b';
+        }
+      }
+
       // shoes
       if(py >= 30 && px >= 11 && px <= 21 && (px <= 13 || px >= 19)) color = '#000000';
+
       if(color){
         ctx.fillStyle = color;
         ctx.fillRect(startX + px*pixelSize, startY + py*pixelSize, pixelSize, pixelSize);
@@ -178,6 +197,9 @@ function update(dt){
     if(!isBlockedAtWorld(player.x, newY)){
       player.y = newY;
     }
+    // update walk animation (advance every 0.18s)
+    player.walkTimer += dt;
+    if(player.walkTimer > 0.18){ player.walkFrame = (player.walkFrame+1) % 2; player.walkTimer = 0; }
     target = null;
     return;
   }
@@ -203,6 +225,9 @@ function update(dt){
       if(!isBlockedAtWorld(newX, player.y)) player.x = newX;
       let newY = player.y + moveY;
       if(!isBlockedAtWorld(player.x, newY)) player.y = newY;
+      // walking animation for target-driven movement
+      player.walkTimer += dt;
+      if(player.walkTimer > 0.18){ player.walkFrame = (player.walkFrame+1) % 2; player.walkTimer = 0; }
     } else {
       target = null;
     }
@@ -250,7 +275,7 @@ function draw(){
   const px = halfW;
   const py = halfH;
   ctx.imageSmoothingEnabled = false;
-  renderHero(ctx, px, py);
+  renderHero(ctx, px, py, player.walkFrame);
 
   // debug HUD
   ctx.fillStyle = 'rgba(255,255,255,0.8)';
