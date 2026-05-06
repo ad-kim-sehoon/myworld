@@ -72,16 +72,59 @@ jobs:
           fi
         continue-on-error: true
 
-      - name: "Export HTML5 (Godot) — run and allow diagnostics on failure"
+      - name: "Export HTML5 (Godot) — download headless, templates, and export"
         id: export_step
         continue-on-error: true
-        uses: dulvui/godot-html-export@main
-        with:
-          godot-version: ${{ env.GODOT_VERSION }}
-          working-directory: godot
-          create-export-preset-cfg: 'true'
-          # output-file-path can be adjusted if your export preset writes elsewhere
-          output-file-path: 'build/html5/index.html'
+        run: |
+          set -euo pipefail
+          VER="${{ env.GODOT_VERSION }}"
+          CHANNEL="stable"
+          echo "Using Godot version: $VER (channel: $CHANNEL)"
+
+          # prepare directories
+          mkdir -p ~/.local/share/godot/templates/${VER}.${CHANNEL}
+
+          # download headless binary and export templates (best-effort)
+          HEAD_URL="https://github.com/godotengine/godot-builds/releases/download/${VER}-${CHANNEL}/Godot_v${VER}-${CHANNEL}_linux_headless.64.zip"
+          TPL_URL="https://github.com/godotengine/godot-builds/releases/download/${VER}-${CHANNEL}/Godot_v${VER}-${CHANNEL}_export_templates.tpz"
+
+          echo "Attempting to download headless binary: $HEAD_URL"
+          if curl --head --fail "$HEAD_URL" >/dev/null 2>&1; then
+            curl -L "$HEAD_URL" -o /tmp/godot_headless.zip
+            unzip -q /tmp/godot_headless.zip -d /tmp || true
+            # find binary
+            BINPATH=$(ls /tmp | grep Godot | grep headless || true)
+            if [ -n "$BINPATH" ]; then
+              sudo mv /tmp/$BINPATH /usr/local/bin/godot || true
+              sudo chmod +x /usr/local/bin/godot || true
+            fi
+          else
+            echo "Headless binary not found at $HEAD_URL — proceeding and hoping runner has godot"
+          fi
+
+          echo "Attempting to download export templates: $TPL_URL"
+          if curl --head --fail "$TPL_URL" >/dev/null 2>&1; then
+            curl -L "$TPL_URL" -o /tmp/export_templates.tpz
+            mkdir -p ~/.local/share/godot/templates/${VER}.${CHANNEL}
+            tar -xzf /tmp/export_templates.tpz -C ~/.local/share/godot/templates/${VER}.${CHANNEL} || true
+            echo "Export templates installed"
+          else
+            echo "Export templates not found at $TPL_URL — continuing"
+          fi
+
+          # ensure export output dir
+          mkdir -p godot/build/html5
+
+          # run export (allow failure to gather diagnostics)
+          if command -v /usr/local/bin/godot >/dev/null 2>&1; then
+            echo "Running godot export via /usr/local/bin/godot"
+            /usr/local/bin/godot --path godot --export HTML5 build/html5/index.html || true
+          elif command -v godot >/dev/null 2>&1; then
+            echo "Running godot export via godot"
+            godot --path godot --export HTML5 build/html5/index.html || true
+          else
+            echo "No godot binary found on runner; export cannot run"
+          fi
 
       - name: Check export output
         run: |
