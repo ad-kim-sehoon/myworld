@@ -47,23 +47,13 @@ jobs:
           sudo apt-get install -y wget unzip curl
           echo "GODOT_VERSION=$GODOT_VERSION"
 
-      - name: Ensure export_presets.cfg exists
+      - name: Show export_presets.cfg (if present)
         run: |
-          if [ ! -f godot/export_presets.cfg ]; then
-            echo "No export_presets.cfg found — creating a simple HTML5 preset"
-            mkdir -p godot
-            cat > godot/export_presets.cfg <<'EOF'
-[preset.0]
-name="HTML5"
-platform="HTML5"
-preset="HTML5"
-export_path="build/html5"
-export_filter=""
-runnable=false
-remote=false
-EOF
+          if [ -f godot/export_presets.cfg ]; then
+            echo "export_presets.cfg found:";
+            sed -n '1,200p' godot/export_presets.cfg || true
           else
-            echo "export_presets.cfg found"
+            echo "(no export_presets.cfg found)"
           fi
 
       - name: (Optional) Install Godot export templates (best-effort)
