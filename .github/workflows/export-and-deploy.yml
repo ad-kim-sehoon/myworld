@@ -75,11 +75,13 @@ jobs:
       - name: "Export HTML5 (Godot) — run and allow diagnostics on failure"
         id: export_step
         continue-on-error: true
-        uses: firebelley/godot-html-export@v1
+        uses: dulvui/godot-html-export@main
         with:
-          working-directory: godot
           godot-version: ${{ env.GODOT_VERSION }}
-          godot-create-export-preset-cfg: 'true'
+          working-directory: godot
+          create-export-preset-cfg: 'true'
+          # output-file-path can be adjusted if your export preset writes elsewhere
+          output-file-path: 'build/html5/index.html'
 
       - name: Check export output
         run: |
