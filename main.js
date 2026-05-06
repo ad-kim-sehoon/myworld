@@ -317,20 +317,39 @@ function draw(){
       const sy = ty * TILE - camY;
       ctx.fillRect(Math.round(sx), Math.round(sy), TILE+1, TILE+1);
       if(type === 'grass'){
-        ctx.fillStyle = 'rgba(0,0,0,0.02)';
-        ctx.fillRect(Math.round(sx+4), Math.round(sy+4), 2, 2);
+        // scaled grass detail (use TILE-relative positioning)
+        ctx.fillStyle = 'rgba(0,0,0,0.04)';
+        const dotSize = Math.max(1, Math.round(TILE * 0.6));
+        ctx.fillRect(Math.round(sx + TILE * 0.3), Math.round(sy + TILE * 0.3), dotSize, dotSize);
       }
 
-      // draw tree on forest tiles if present
-      if(type === 'forest' && hasTreeAt(tx,ty)){
-        // trunk
-        ctx.fillStyle = '#8b5a2b';
-        ctx.fillRect(Math.round(sx + TILE*0.45), Math.round(sy + TILE*0.45), Math.round(TILE*0.1), Math.round(TILE*0.2));
-        // foliage (circle)
-        ctx.fillStyle = '#0b6623';
+      // draw rock as a larger rounded blob for better proportion with hero
+      if(type === 'rock'){
+        const rockColor = mapToPalette('#9ca3af');
+        ctx.fillStyle = rockColor;
+        const rw = Math.max(6, Math.round(SPRITE_PX * SPRITE_SCALE * 0.18));
+        const rh = Math.max(4, Math.round(rw * 0.7));
         ctx.beginPath();
-        ctx.arc(Math.round(sx + TILE*0.5), Math.round(sy + TILE*0.35), Math.round(TILE*0.28), 0, Math.PI*2);
+        ctx.ellipse(Math.round(sx + TILE/2), Math.round(sy + TILE/2), Math.round(rw/2), Math.round(rh/2), 0, 0, Math.PI*2);
         ctx.fill();
+      }
+
+      // draw tree on forest tiles if present (scaled to character)
+      if(type === 'forest' && hasTreeAt(tx,ty)){
+        // position centered on tile
+        const treeBaseX = Math.round(sx + TILE/2);
+        const treeBaseY = Math.round(sy + TILE/2);
+        const foliageRadius = Math.max(6, Math.round(SPRITE_PX * SPRITE_SCALE * 0.35));
+        const trunkWidth = Math.max(2, Math.round(SPRITE_PX * SPRITE_SCALE * 0.12));
+        const trunkHeight = Math.max(4, Math.round(SPRITE_PX * SPRITE_SCALE * 0.22));
+        // foliage
+        ctx.fillStyle = mapToPalette('#0b6623');
+        ctx.beginPath();
+        ctx.ellipse(treeBaseX, treeBaseY - Math.round(trunkHeight/2), foliageRadius, Math.round(foliageRadius * 0.8), 0, 0, Math.PI*2);
+        ctx.fill();
+        // trunk
+        ctx.fillStyle = mapToPalette('#8b5a2b');
+        ctx.fillRect(treeBaseX - Math.floor(trunkWidth/2), treeBaseY + Math.floor(foliageRadius * 0.2), trunkWidth, trunkHeight);
       }
     }
   }
