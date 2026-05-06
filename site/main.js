@@ -151,7 +151,9 @@ function tileColor(type){
 
 // Tree placement: deterministic; trees appear on some forest tiles
 // Tree density & types with regional modifiers
-const TREE_GLOBAL_DENSITY = 4; // percent (set to 4% by default; change to 2 for sparser)
+const TREE_GLOBAL_DENSITY = 4; // percent (base density)
+let TREE_GLOBAL_SCALE = 1.0; // global scale multiplier (set <1 to remove percentage of trees)
+// Quickly reduce object counts by multiplying TREE_GLOBAL_SCALE (e.g., 0.4 removes ~60%)
 function regionDensityModifier(tx,ty){
   // Simple region rules to create paths and clearings
   // Create vertical/horizontal paths every 50 tiles
@@ -166,7 +168,8 @@ function treeDensityAt(tx,ty){
   if(tileTypeAt(tx,ty) !== 'forest') return 0;
   const base = TREE_GLOBAL_DENSITY; // percent
   const mod = regionDensityModifier(tx,ty);
-  return Math.max(0, Math.min(100, Math.round(base * mod)));
+  const scaled = Math.round(base * mod * TREE_GLOBAL_SCALE);
+  return Math.max(0, Math.min(100, scaled));
 }
 function hasTreeAt(tx,ty){
   const density = treeDensityAt(tx,ty);
