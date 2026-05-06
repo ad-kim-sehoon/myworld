@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Debug: print environment
+      - name: "Debug: print environment"
         run: |
           echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
           echo "Runner: $(uname -a)"
@@ -82,7 +82,7 @@ EOF
           fi
         continue-on-error: true
 
-      - name: Export HTML5 (Godot) — run and allow diagnostics on failure
+      - name: "Export HTML5 (Godot) — run and allow diagnostics on failure"
         id: export_step
         continue-on-error: true
         uses: firebelley/godot-html-export@v1
