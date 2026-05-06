@@ -39,6 +39,26 @@ function createDebugOverlay(){
     d.innerHTML = '<strong style="font-size:12px">DEBUG</strong><div id="debug-messages"></div>';
     document.body.appendChild(d);
   }catch(e){}
+}    // copy button
+    const btn = document.createElement('button');
+    btn.id = 'debug-copy-btn';
+    btn.textContent = 'Copy logs';
+    btn.style.position = 'relative';
+    btn.style.marginTop = '6px';
+    btn.style.display = 'block';
+    btn.style.padding = '6px 8px';
+    btn.style.fontSize = '12px';
+    btn.style.border = 'none';
+    btn.style.borderRadius = '4px';
+    btn.style.background = 'rgba(255,255,255,0.08)';
+    btn.style.color = '#fff';
+    btn.style.cursor = 'pointer';
+    btn.style.pointerEvents = 'auto';
+    btn.addEventListener('click', function(){
+      try{ const cont = document.getElementById('debug-messages'); if(!cont) return; const text = Array.from(cont.childNodes).map(n=>n.textContent).join('
+'); if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(()=>{ btn.textContent='Copied'; setTimeout(()=>btn.textContent='Copy logs',1500); }); } else { const a=document.createElement('a'); a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(text); a.download='debug_logs.txt'; document.body.appendChild(a); a.click(); a.remove(); } }catch(e){} });
+    d.appendChild(btn);
+  }catch(e){}
 }
 function debugMsg(text, obj){
   try{
