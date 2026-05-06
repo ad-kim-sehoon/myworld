@@ -1,0 +1,77 @@
+name: Fetch deploy workflow logs and report
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  fetch_logs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch latest deploy workflow run
+        env:
+          GH_TOKEN: ${{ secrets.ACTIONS_MONITOR_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          OWNER=$(echo "$REPO" | cut -d/ -f1)
+          REPO_NAME=$(echo "$REPO" | cut -d/ -f2)
+          echo "Looking for workflow runs for deploy-static-site.yml"
+          API="https://api.github.com/repos/$OWNER/$REPO_NAME/actions/runs?per_page=20"
+          curl -sS -H "Authorization: token $GH_TOKEN" -H "Accept: application/vnd.github+json" "$API" > /tmp/runs.json
+          # find run with workflow name 'Deploy static site to GitHub Pages' or matching workflow file
+          RUN_ID=$(jq -r '.workflow_runs[] | select(.name=="Deploy static site to GitHub Pages") | .id' /tmp/runs.json | head -n1)
+          if [ -z "$RUN_ID" ]; then
+            echo "No recent deploy run found by name; try matching by workflow_id via file"
+            RUN_ID=$(jq -r '.workflow_runs[0].id' /tmp/runs.json | head -n1)
+          fi
+          echo "run_id=$RUN_ID" > /tmp/run_id
+          echo "Found run: $RUN_ID"
+          echo "::set-output name=run_id::$RUN_ID"
+
+      - name: Download run logs zip
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.ACTIONS_MONITOR_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          OWNER=$(echo "$REPO" | cut -d/ -f1)
+          REPO_NAME=$(echo "$REPO" | cut -d/ -f2)
+          RUN_ID=$(cat /tmp/run_id)
+          if [ -z "$RUN_ID" ]; then
+            echo "No run id available; exiting"
+            exit 0
+          fi
+          LOGS_API="https://api.github.com/repos/$OWNER/$REPO_NAME/actions/runs/$RUN_ID/logs"
+          echo "Downloading logs for run $RUN_ID"
+          curl -sS -L -H "Authorization: token $GH_TOKEN" -o /tmp/run_logs.zip "$LOGS_API"
+          unzip -o /tmp/run_logs.zip -d /tmp/run_logs || true
+          echo "Extracted logs to /tmp/run_logs"
+
+      - name: Create issue with deploy step logs
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.ACTIONS_MONITOR_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          OWNER=$(echo "$REPO" | cut -d/ -f1)
+          REPO_NAME=$(echo "$REPO" | cut -d/ -f2)
+          RUN_ID=$(cat /tmp/run_id || echo '')
+          BODY="Automated log report for deploy run: https://github.com/$OWNER/$REPO_NAME/actions/runs/$RUN_ID\n\n"
+          # find any peaceiris or deploy step logs
+          if [ -d /tmp/run_logs ]; then
+            echo "Collecting log snippets"
+            # concatenate up to 2000 lines from files that likely contain deploy step info
+            for f in $(find /tmp/run_logs -type f -name '*deploy*' -o -name '*peaceiris*' -o -name '*deploy-static-site*' -o -name '*deploy*' | head -n 10); do
+              BODY+="--- Log file: $f ---\n"
+              BODY+=$(sed -n '1,400p' "$f" | sed 's/"/\"/g')
+              BODY+="\n\n"
+            done
+          else
+            BODY+="(no extracted logs found)\n"
+          fi
+          PAYLOAD=$(jq -n --arg title "CI: deploy logs for run $RUN_ID" --arg body "$BODY" '{title:$title,body:$body}')
+          curl -sS -X POST -H "Authorization: token $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/$OWNER/$REPO_NAME/issues -d "$PAYLOAD" > /tmp/issue_resp.json
+          jq -r '.html_url' /tmp/issue_resp.json || true
