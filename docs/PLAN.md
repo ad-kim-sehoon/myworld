@@ -27,7 +27,7 @@
 개발 환경 및 규약 (요약)
 
 - 코드 주석: 한국어
-- GDScript 스타일: 프로젝트 규약에 따름(기본적으로 2-space, 하지만 GDScript는 4-space 선호—결정 필요)
+- GDScript 스타일: 들여쓰기 2-space (프로젝트 표준)
 - 포맷터/훅: prettier, eslint(자바스크립트), husky, lint-staged(이미 설정됨)
 
 초기 작업 제안 (제가 바로 시작할 작업)
