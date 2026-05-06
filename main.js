@@ -207,6 +207,9 @@ window.addEventListener('pointerup', joyPointerUp);
 
 // Rectangle collision: check any tile overlapped by axis-aligned rectangle is blocked
 // For trees we use a smaller circular collision around the tree center so player can pass near trunks
+// Improvements: only a subset of trees are collidable; far-away trees are non-collidable to avoid overblocking.
+const TREE_COLLIDABLE_PERCENT = 25; // % of trees that are solid
+const TREE_COLLIDE_IGNORE_DIST = 360; // world pixels beyond which tree collision is ignored
 function rectBlockedAtWorld(cx, cy, w, h){
   // cx,cy are center coordinates
   const left = Math.floor((cx - w/2) / TILE);
@@ -218,10 +221,18 @@ function rectBlockedAtWorld(cx, cy, w, h){
       const t = tileTypeAt(tx,ty);
       if(t === 'water' || t === 'rock') return true;
       if(t === 'forest' && hasTreeAt(tx,ty)){
-        // tree collision: circle at tile center with small radius
+        // Decide if this tree should be considered for collision
+        const hashVal = hash2(tx,ty) % 100;
+        if(hashVal >= TREE_COLLIDABLE_PERCENT) continue; // non-collidable tree
+        // tree collision: circle at tile center with radius scaled to hero
         const treeCx = tx * TILE + TILE/2;
         const treeCy = ty * TILE + TILE/2;
-        const treeRadius = Math.max(6, Math.round(SPRITE_PX * SPRITE_SCALE * 0.12));
+        const treeRadius = Math.max(4, Math.round(SPRITE_PX * SPRITE_SCALE * 0.10));
+        // ignore far trees for collision (they are rendered small and should not block)
+        const dxp = treeCx - player.x;
+        const dyp = treeCy - player.y;
+        const distToPlayer = Math.hypot(dxp, dyp);
+        if(distToPlayer > TREE_COLLIDE_IGNORE_DIST) continue;
         // rectangle bounds
         const rx1 = cx - w/2, ry1 = cy - h/2;
         const rx2 = cx + w/2, ry2 = cy + h/2;
