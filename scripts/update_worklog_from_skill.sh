@@ -3,11 +3,11 @@ set -e
 
 # Avoid running for worklog commits to prevent loop
 MSG=$(git log -1 --pretty=%B)
-case "$MSG" in
-  chore(worklog):*)
-    exit 0
-    ;;
-esac
+FIRSTLINE=$(printf "%s" "$MSG" | sed -n '1p')
+# Skip if the commit message already is a worklog commit
+if [ "${FIRSTLINE#chore(worklog):}" != "$FIRSTLINE" ]; then
+  exit 0
+fi
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "(unknown)")
 HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "(unknown)")
