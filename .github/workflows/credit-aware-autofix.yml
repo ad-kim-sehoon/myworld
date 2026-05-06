@@ -94,3 +94,16 @@ PY
 
           echo "needs_escalation=true" >> $GITHUB_OUTPUT
           echo "model=$HIGH_COST_MODEL" >> $GITHUB_OUTPUT
+
+      - name: Run diagnostic with selected model
+        if: ${{ steps.decide_and_charge.outputs.needs_escalation == 'true' }}
+        run: |
+          set -euo pipefail
+          MODEL="${{ steps.decide_and_charge.outputs.model }}"
+          echo "Running diagnostic with model: $MODEL"
+          chmod +x ./scripts/run_diagnostic_model.sh || true
+          ./scripts/run_diagnostic_model.sh "$MODEL" "Please analyze the CI failure for ${GITHUB_REPOSITORY} run ${{ github.event.workflow_run.html_url }} and suggest fixes in a compact actionable list." > /tmp/model_response.json || true
+          echo "Model output saved to /tmp/model_response.json"
+          cat /tmp/model_response.json || true
+        env:
+          MODEL_API_TOKEN: ${{ secrets.MODEL_API_TOKEN }}
