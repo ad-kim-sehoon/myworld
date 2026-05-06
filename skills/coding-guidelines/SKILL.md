@@ -33,3 +33,12 @@ description: 'Project coding guidelines and pre-work checklist. Load this skill 
 - 자동화: 가능한 경우 스크립트나 훅으로 WORKLOG 업데이트를 자동화(예: 커밋 메시지 템플릿, git hook)하도록 권장.
 
 참고 자료: references/CODING_GUIDELINES.md
+
+SKILL.md 변경 및 푸시
+
+- SKILL.md는 이 스킬의 핵심 문서입니다. SKILL.md를 수정하면 반드시 리포지토리에 커밋하고 원격(origin)에 푸시해야 합니다. 이는 다른 에이전트나 협업자가 최신 규약과 동작을 즉시 참조할 수 있게 하기 위함입니다.
+- 권장 워크플로:
+  1. 변경 후 로컬에서 내용을 검토하고 커밋 메시지에 변경 요약을 명확히 적기.
+  2. git push origin <branch>로 원격에 푸시.
+  3. 가능하면 변경 내용은 작은 단위로 나누고 PR을 통해 리뷰를 받기.
+- 자동화 권장: SKILL.md 변경 시 자동으로 워크로그에 항목을 추가하거나(예: scripts/update_worklog.sh), CI에서 규약 검사(예: SKILL.md 형식 검사)를 실행하도록 설정할 것.
