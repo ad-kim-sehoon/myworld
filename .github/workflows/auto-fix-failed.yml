@@ -69,11 +69,32 @@ jobs:
           # 3) Remove simple heredoc creation blocks that write multi-line content into files (risky); instead leave a comment for manual fix
           # This will delete from the line containing <<'EOF' (or <<EOF) through the next line that starts with EOF
           if grep -R "<<'EOF'\|<<EOF" .github/workflows >/dev/null 2>&1; then
-            echo "Removing heredoc blocks (converted to comments) to avoid YAML parsing issues"
+            echo "Backing up and replacing heredoc blocks to avoid YAML parsing issues"
+            mkdir -p docs/backup_workflows
+            ts=$(date +%s)
             for f in $(grep -R --line-number "<<'EOF'\|<<EOF" .github/workflows | cut -d: -f1 | sort -u); do
               echo "Processing $f"
-              # create a temporary file with heredoc blocks replaced by a placeholder comment
-              awk 'BEGIN{in=0} { if (in==0 && $0 ~ /<<\'EOF\'|<<EOF/) { print "# HEREDOC_BLOCK_REPLACED"; in=1; next } if (in==1 && $0 ~ /^EOF$/) { in=0; next } if (in==0) print }' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+              base=$(basename "$f")
+              cnt=0
+              # extract heredoc blocks to backup files and replace them with a placeholder referencing the backup
+              awk -v outdir="docs/backup_workflows" -v base="$base" -v ts="$ts" '
+                BEGIN{in=0;cnt=0}
+                {
+                  if(in==0 && ($0 ~ /<<'"'"'EOF'"'"'/' || $0 ~ /<<EOF/)) {
+                    cnt++; fn=outdir"/"base"_"ts"_"cnt".heredoc";
+                    print $0 > fn; in=1; next
+                  }
+                  if(in==1) {
+                    print $0 > fn;
+                    if($0 ~ /^EOF$/) { close(fn); print "# HEREDOC_BLOCK_REPLACED (backup: " fn ")"; in=0; next }
+                    else next
+                  }
+                  if(in==0) print
+                }
+              ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+
+              # stage backup files so PR includes them
+              git add docs/backup_workflows/"$base"_"$ts"_*.heredoc || true
               CHANGED=1
             done
           fi
@@ -85,7 +106,11 @@ jobs:
             git push --set-upstream origin "$BRANCH"
 
             echo "Creating Pull Request via GitHub API"
-            gh pr create --title "autofix: workflow YAML fixes" --body "This PR was opened automatically to fix common workflow YAML issues detected after a failed run. Please review before merging." --base main --head "$BRANCH" || true
+            OWNER=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f1)
+            # create PR with label and assign to repo owner for triage
+            gh pr create --title "autofix: workflow YAML fixes" \
+              --body "This PR was opened automatically to fix common workflow YAML issues detected after a failed run. Please review before merging." \
+              --base main --head "$BRANCH" --label "ci-autofix" --assignee "$OWNER" || true
           else
             echo "No automated changes applied"
           fi
