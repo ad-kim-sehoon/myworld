@@ -16,6 +16,7 @@ resize();
 
 // higher density tiles (TILE=4) and larger procedural hero sprite
 const TILE = 4;
+const DEBUG_COLLISION = true;
 const player = {x:0,y:0,vx:0,vy:0,maxSpeed:100,accel:800, walkFrame:0, walkTimer:0, walkFrames:6, facing:0};
 let target = null;
 const keys = {};
@@ -281,8 +282,8 @@ function isTreeCollidable(tx,ty){
   const v = hash2(tx+3,ty+5) % 100;
   return v < TREE_COLLIDABLE_PERCENT;
 }
-function rectBlockedAtWorld(cx, cy, w, h){
-  // cx,cy are center coordinates
+function rectBlockedReason(cx, cy, w, h){
+  // returns { blocked: bool, reason: string, info: object }
   const left = Math.floor((cx - w/2) / TILE);
   const right = Math.floor((cx + w/2) / TILE);
   const top = Math.floor((cy - h/2) / TILE);
@@ -290,31 +291,36 @@ function rectBlockedAtWorld(cx, cy, w, h){
   for(let ty = top; ty <= bottom; ty++){
     for(let tx = left; tx <= right; tx++){
       const t = tileTypeAt(tx,ty);
-      if(t === 'water' || t === 'rock') return true;
+      if(t === 'water' || t === 'rock'){
+        if(DEBUG_COLLISION) console.debug('rectBlockedReason: blocked by tile', {tx,ty,type:t,cx,cy,w,h});
+        return {blocked:true, reason:'tile', info:{tx,ty,type:t}};
+      }
       if(t === 'forest' && (hasTreeAt(tx,ty) || placeObstacleAt(tx,ty))){
-        if(!isTreeCollidable(tx,ty)) continue; // decorative or non-solid tree
-        // tree collision: circle at tile center with radius scaled to hero
+        const hasTree = hasTreeAt(tx,ty);
+        const placed = placeObstacleAt(tx,ty);
+        const collidable = isTreeCollidable(tx,ty);
+        if(!collidable) { if(DEBUG_COLLISION) console.debug('rectBlockedReason: decorative tree or non-collidable', {tx,ty,hasTree,placed}); continue; }
         const treeCx = tx * TILE + TILE/2;
         const treeCy = ty * TILE + TILE/2;
         const treeRadius = Math.max(4, Math.round(SPRITE_PX * SPRITE_SCALE * 0.12));
-        // ignore far trees for collision (they are rendered small and should not block)
-        const dxp = treeCx - player.x;
-        const dyp = treeCy - player.y;
-        const distToPlayer = Math.hypot(dxp, dyp);
-        if(distToPlayer > TREE_COLLIDE_IGNORE_DIST) continue;
-        // rectangle bounds
+        const dxp = treeCx - cx;
+        const dyp = treeCy - cy;
+        const distToPoint = Math.hypot(dxp, dyp);
+        if(distToPoint > TREE_COLLIDE_IGNORE_DIST) { if(DEBUG_COLLISION) console.debug('rectBlockedReason: tree too far from test point', {tx,ty,distToPoint}); continue; }
         const rx1 = cx - w/2, ry1 = cy - h/2;
         const rx2 = cx + w/2, ry2 = cy + h/2;
-        // closest point on rect to circle center
         const closestX = Math.max(rx1, Math.min(treeCx, rx2));
         const closestY = Math.max(ry1, Math.min(treeCy, ry2));
         const dx = treeCx - closestX;
         const dy = treeCy - closestY;
-        if(dx*dx + dy*dy <= treeRadius * treeRadius) return true;
+        if(dx*dx + dy*dy <= treeRadius * treeRadius){
+          if(DEBUG_COLLISION) console.debug('rectBlockedReason: blocked by tree', {tx,ty,treeRadius,dx,dy});
+          return {blocked:true, reason:'tree', info:{tx,ty,treeRadius,dx,dy}};
+        }
       }
     }
   }
-  return false;
+  return {blocked:false};
 }
 
 function update(dt){
@@ -364,17 +370,21 @@ function update(dt){
 
   // X
   const newX = player.x + player.vx * dt;
-  if(!rectBlockedAtWorld(newX, player.y, w, h)){
+  const resX = rectBlockedReason(newX, player.y, w, h);
+  if(!resX.blocked){
     player.x = newX;
   } else {
     player.vx = 0;
+    if(DEBUG_COLLISION) console.debug('movement X blocked', resX);
   }
   // Y
   const newY = player.y + player.vy * dt;
-  if(!rectBlockedAtWorld(player.x, newY, w, h)){
+  const resY = rectBlockedReason(player.x, newY, w, h);
+  if(!resY.blocked){
     player.y = newY;
   } else {
     player.vy = 0;
+    if(DEBUG_COLLISION) console.debug('movement Y blocked', resY);
   }
 
   // update facing based on horizontal velocity (smooth)
