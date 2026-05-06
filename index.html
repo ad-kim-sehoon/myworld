@@ -1,16 +1,17 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>순수 자바스크립트로 시작</title>
-  <style>
-    html,body{height:100%;margin:0}
-    body{display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,"Segoe UI",Roboto,'Noto Sans KR',sans-serif;background:linear-gradient(135deg,#f8fafc,#eef2ff);color:#0f172a}
-    .card{padding:24px 32px;border-radius:12px;background:rgba(255,255,255,0.85);box-shadow:0 6px 24px rgba(15,23,42,0.08);font-size:24px}
-  </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>오픈월드 프로토타입 (픽셀)</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="card">순수 자바스크립트로 시작</div>
+  <canvas id="screen"></canvas>
+  <div id="ui">
+    <div id="title">오픈월드 프로토타입 — 터치 또는 방향키로 이동</div>
+    <div id="hint">모바일: 화면을 터치하면 그쪽으로 이동합니다.</div>
+  </div>
+  <script src="main.js"></script>
 </body>
 </html>
