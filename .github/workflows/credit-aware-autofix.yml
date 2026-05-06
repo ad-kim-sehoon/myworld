@@ -106,4 +106,4 @@ PY
           echo "Model output saved to /tmp/model_response.json"
           cat /tmp/model_response.json || true
         env:
-          MODEL_API_TOKEN: ${{ secrets.MODEL_API_TOKEN }}
+          ACTIONS_MONITOR_PAT: ${{ secrets.ACTIONS_MONITOR_PAT }}
