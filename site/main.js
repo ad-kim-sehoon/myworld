@@ -260,10 +260,19 @@ window.addEventListener('pointerup', joyPointerUp);
 
 // Rectangle collision: check any tile overlapped by axis-aligned rectangle is blocked
 // For trees we use a smaller circular collision around the tree center so player can pass near trunks
-// Improvements: only some trees are collidable and large trees are prioritised; far-away trees are ignored.
+// Improvements: allow a small sparse set of explicit obstacles and keep only a tiny fraction collidable
 const TREE_COLLIDABLE_PERCENT = 5; // % of large trees that are solid (very few block)
 const TREE_COLLIDE_IGNORE_DIST = 360; // world pixels beyond which tree collision is ignored
+const OBSTACLE_GLOBAL_DENSITY = 3; // percent chance for placed obstacle anchors
+function placeObstacleAt(tx,ty){
+  // deterministic sparse anchors + small random chance
+  if(tileTypeAt(tx,ty) !== 'forest') return false;
+  if(tx % 24 === 0 && ty % 24 === 0) return true;
+  return (hash2(tx+13,ty+29) % 100) < OBSTACLE_GLOBAL_DENSITY;
+}
 function isTreeCollidable(tx,ty){
+  // explicitly placed obstacles always collide
+  if(placeObstacleAt(tx,ty)) return true;
   if(!hasTreeAt(tx,ty)) return false;
   const type = treeTypeAt(tx,ty);
   if(type !== 'large') return false; // only large ones block by default
@@ -281,7 +290,7 @@ function rectBlockedAtWorld(cx, cy, w, h){
     for(let tx = left; tx <= right; tx++){
       const t = tileTypeAt(tx,ty);
       if(t === 'water' || t === 'rock') return true;
-      if(t === 'forest' && hasTreeAt(tx,ty)){
+      if(t === 'forest' && (hasTreeAt(tx,ty) || placeObstacleAt(tx,ty))){
         if(!isTreeCollidable(tx,ty)) continue; // decorative or non-solid tree
         // tree collision: circle at tile center with radius scaled to hero
         const treeCx = tx * TILE + TILE/2;
