@@ -1,0 +1,9 @@
+[application]
+config/name="myworld"
+config/description="Lightweight open-world prototype for web (HTML5)"
+
+[display]
+width=1280
+height=720
+stretch_mode="viewport"
+stretch_aspect="keep"

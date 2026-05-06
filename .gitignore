@@ -1,0 +1,11 @@
+# Godot
+.import/
+.export/
+.godot/
+*.import
+*.tpz
+*.tmp
+
+auto-generated
+node_modules/
+.DS_Store
