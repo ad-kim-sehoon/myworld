@@ -152,8 +152,8 @@ function tileColor(type){
 // Tree placement: deterministic; trees appear on some forest tiles
 function hasTreeAt(tx,ty){
   if(tileTypeAt(tx,ty) !== 'forest') return false;
-  // reduce tree density to make navigation easier (~20% of forest tiles)
-  return (hash2(tx,ty) % 10) < 2; // ~20% density
+  // significantly lower tree density to improve navigation (~8% of forest tiles)
+  return (hash2(tx,ty) % 100) < 8; // ~8% density
 }
 function tileBlocked(tx,ty){
   // only fully blocked tiles: water and rock
