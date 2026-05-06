@@ -35,11 +35,10 @@ function createDebugOverlay(){
     d.style.borderRadius = '6px';
     d.style.zIndex = 999999;
     d.style.backdropFilter = 'blur(2px)';
-    d.style.pointerEvents = 'none';
+    d.style.pointerEvents = 'auto';
     d.innerHTML = '<strong style="font-size:12px">DEBUG</strong><div id="debug-messages"></div>';
-    document.body.appendChild(d);
-  }catch(e){}
-}    // copy button
+
+    // copy button
     const btn = document.createElement('button');
     btn.id = 'debug-copy-btn';
     btn.textContent = 'Copy logs';
@@ -55,16 +54,26 @@ function createDebugOverlay(){
     btn.style.cursor = 'pointer';
     btn.style.pointerEvents = 'auto';
     btn.addEventListener('click', function(){
-      try{ const cont = document.getElementById('debug-messages'); if(!cont) return; const text = Array.from(cont.childNodes).map(n=>n.textContent).join('
-'); if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(()=>{ btn.textContent='Copied'; setTimeout(()=>btn.textContent='Copy logs',1500); }); } else { const a=document.createElement('a'); a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(text); a.download='debug_logs.txt'; document.body.appendChild(a); a.click(); a.remove(); } }catch(e){} });
+      try{
+        const cont = document.getElementById('debug-messages');
+        if(!cont) return;
+        const text = Array.from(cont.childNodes).map(n=>n.textContent).join('\n');
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(text).then(()=>{ btn.textContent='Copied'; setTimeout(()=>btn.textContent='Copy logs',1500); });
+        } else {
+          const a=document.createElement('a'); a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(text); a.download='debug_logs.txt'; document.body.appendChild(a); a.click(); a.remove();
+        }
+      }catch(e){}
+    });
+
     d.appendChild(btn);
+    document.body.appendChild(d);
   }catch(e){}
 }
 function debugMsg(text, obj){
   try{
     const now = new Date().toLocaleTimeString();
     if(typeof console !== 'undefined' && console.debug) console.debug('[DBG]', text, obj||'');
-        try{ debugMsg('[DBG]', text, obj||''); }catch(e){};
     const container = document.getElementById('debug-messages') || null;
     if(!container){ createDebugOverlay(); }
     const cont = document.getElementById('debug-messages');
