@@ -327,7 +327,7 @@ window.addEventListener('pointerup', joyPointerUp);
 // Rectangle collision: check any tile overlapped by axis-aligned rectangle is blocked
 // For trees we use a smaller circular collision around the tree center so player can pass near trunks
 // Improvements: allow a small sparse set of explicit obstacles and keep only a tiny fraction collidable
-const TREE_COLLIDABLE_PERCENT = 25; // % of large trees that are solid
+const TREE_COLLIDABLE_PERCENT = 8; // % of large trees that are solid
 const TREE_COLLIDE_IGNORE_DIST = 360; // world pixels beyond which tree collision is ignored
 const OBSTACLE_GLOBAL_DENSITY = 3; // percent chance for placed obstacle anchors
 function placeObstacleAt(tx,ty){
