@@ -13,12 +13,27 @@ function resize(){
 window.addEventListener('resize', resize);
 resize();
 
-const TILE = 24;
-const player = {x:0,y:0,speed:140};
+// smaller tile for denser pixels
+const TILE = 8;
+const player = {x:0,y:0,speed:120};
 let target = null;
 const keys = {};
 window.addEventListener('keydown', e => { keys[e.key] = true; });
 window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// 8x8 pixel sprite (simple hero)
+const heroSprite = [
+  [null,null,'#000000','#000000','#000000','#000000',null,null],
+  [null,'#000000','#ffcc99','#ffcc99','#ffcc99','#ffcc99','#000000',null],
+  [null,'#ffcc99','#ffcc99','#ffcc99','#ffcc99','#ffcc99','#ffcc99',null],
+  [null,null,'#880000','#880000','#880000','#880000',null,null],
+  [null,null,'#00aa00','#00aa00','#00aa00','#00aa00',null,null],
+  [null,'#0066ff','#0066ff','#00aaee','#00aaee','#0066ff','#0066ff',null],
+  ['#000000',null,'#000000',null,null,'#000000',null,'#000000'],
+  [null,null,'#000000','#000000','#000000','#000000',null,null]
+];
+const SPRITE_PX = heroSprite.length; // 8
+const SPRITE_SCALE = 2; // each sprite pixel rendered as SCALE x SCALE canvas pixels
 
 canvas.addEventListener('pointerdown', e => {
   const rect = canvas.getBoundingClientRect();
@@ -209,15 +224,25 @@ function draw(){
     }
   }
 
-  // draw player as rectangle in center
+  // draw player sprite centered
   const px = halfW;
   const py = halfH;
-  ctx.fillStyle = '#111827';
-  ctx.fillRect(px-8, py-8, 16,16);
+  const pixelSize = SPRITE_SCALE;
+  const spriteTotal = SPRITE_PX * pixelSize;
+  const startX = Math.round(px - spriteTotal/2);
+  const startY = Math.round(py - spriteTotal/2);
+  for(let sy=0; sy<SPRITE_PX; sy++){
+    for(let sx=0; sx<SPRITE_PX; sx++){
+      const c = heroSprite[sy][sx];
+      if(!c) continue;
+      ctx.fillStyle = c;
+      ctx.fillRect(startX + sx*pixelSize, startY + sy*pixelSize, pixelSize, pixelSize);
+    }
+  }
 
   // debug HUD
   ctx.fillStyle = 'rgba(255,255,255,0.8)';
-  ctx.fillRect(10,10,260,48);
+  ctx.fillRect(10,10,300,56);
   ctx.fillStyle = '#0b1220';
   ctx.font = '12px system-ui';
   ctx.fillText('Player: ('+player.x.toFixed(0)+', '+player.y.toFixed(0)+')', 18, 28);
