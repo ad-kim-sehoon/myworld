@@ -1,4 +1,4 @@
-// Minimal pixel open-world prototype (tile-based) with virtual joystick
+// Minimal pixel open-world prototype (tile-based) with virtual joystick and tree collision
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
 let DPR = Math.max(1, window.devicePixelRatio || 1);
@@ -48,6 +48,18 @@ function tileColor(type){
   }
 }
 
+// Tree placement: deterministic; trees appear on some forest tiles
+function hasTreeAt(tx,ty){
+  if(tileTypeAt(tx,ty) !== 'forest') return false;
+  return (hash2(tx,ty) % 10) < 4; // ~40% of forest tiles have trees
+}
+function tileBlocked(tx,ty){
+  const t = tileTypeAt(tx,ty);
+  if(t === 'water' || t === 'rock') return true;
+  if(t === 'forest' && hasTreeAt(tx,ty)) return true;
+  return false;
+}
+
 // Virtual joystick
 const joy = document.getElementById('joystick');
 const joyStick = document.getElementById('joy-stick');
@@ -91,6 +103,13 @@ joy.addEventListener('pointerdown', joyPointerDown);
 window.addEventListener('pointermove', joyPointerMove);
 window.addEventListener('pointerup', joyPointerUp);
 
+// Movement with axis-separated collision against tile blocks (trees, rock, water)
+function isBlockedAtWorld(x,y){
+  const tx = Math.floor(x / TILE);
+  const ty = Math.floor(y / TILE);
+  return tileBlocked(tx,ty);
+}
+
 function update(dt){
   let vx = 0, vy = 0;
   // keyboard
@@ -105,13 +124,28 @@ function update(dt){
     vy = joyVector.y;
   }
 
+  // compute proposed movement
   if(vx !== 0 || vy !== 0){
     const len = Math.hypot(vx,vy) || 1;
-    vx /= len; vy /= len;
-    player.x += vx * player.speed * dt;
-    player.y += vy * player.speed * dt;
+    const nx = vx / len;
+    const ny = vy / len;
+    const moveX = nx * player.speed * dt;
+    const moveY = ny * player.speed * dt;
+
+    // axis-separated collision: try X, then Y
+    let newX = player.x + moveX;
+    if(!isBlockedAtWorld(newX, player.y)){
+      player.x = newX;
+    }
+    let newY = player.y + moveY;
+    if(!isBlockedAtWorld(player.x, newY)){
+      player.y = newY;
+    }
     target = null;
-  } else if(target){
+    return;
+  }
+
+  if(target){
     const screenCenterX = window.innerWidth/2;
     const screenCenterY = window.innerHeight/2;
     const worldCenterX = player.x;
@@ -124,8 +158,14 @@ function update(dt){
     const diry = desiredY - player.y;
     const dist = Math.hypot(dirx,diry);
     if(dist > 4){
-      player.x += (dirx/dist) * player.speed * dt;
-      player.y += (diry/dist) * player.speed * dt;
+      const nx = dirx / dist;
+      const ny = diry / dist;
+      const moveX = nx * player.speed * dt;
+      const moveY = ny * player.speed * dt;
+      let newX = player.x + moveX;
+      if(!isBlockedAtWorld(newX, player.y)) player.x = newX;
+      let newY = player.y + moveY;
+      if(!isBlockedAtWorld(player.x, newY)) player.y = newY;
     } else {
       target = null;
     }
@@ -154,11 +194,28 @@ function draw(){
         ctx.fillStyle = 'rgba(0,0,0,0.02)';
         ctx.fillRect(Math.round(sx+4), Math.round(sy+4), 2, 2);
       }
+
+      // draw tree on forest tiles if present
+      if(type === 'forest' && hasTreeAt(tx,ty)){
+        // trunk
+        ctx.fillStyle = '#8b5a2b';
+        ctx.fillRect(Math.round(sx + TILE*0.45), Math.round(sy + TILE*0.45), Math.round(TILE*0.1), Math.round(TILE*0.2));
+        // foliage (circle)
+        ctx.fillStyle = '#0b6623';
+        ctx.beginPath();
+        ctx.arc(Math.round(sx + TILE*0.5), Math.round(sy + TILE*0.35), Math.round(TILE*0.28), 0, Math.PI*2);
+        ctx.fill();
+      }
     }
   }
-  const px = halfW; const py = halfH;
+
+  // draw player as rectangle in center
+  const px = halfW;
+  const py = halfH;
   ctx.fillStyle = '#111827';
-  ctx.fillRect(px-8, py-8, 16, 16);
+  ctx.fillRect(px-8, py-8, 16,16);
+
+  // debug HUD
   ctx.fillStyle = 'rgba(255,255,255,0.8)';
   ctx.fillRect(10,10,260,48);
   ctx.fillStyle = '#0b1220';
