@@ -1,0 +1,29 @@
+name: Export and Deploy Godot (HTML5)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  export_and_deploy:
+    name: Export Godot and deploy to GitHub Pages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Export HTML5 (Godot)
+        uses: firebelley/godot-html-export@v1
+        with:
+          working-directory: godot
+          godot-version: '4.1.0'
+          godot-create-export-preset-cfg: 'true'
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: godot/build/html5
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v1
