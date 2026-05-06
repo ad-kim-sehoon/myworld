@@ -150,10 +150,35 @@ function tileColor(type){
 }
 
 // Tree placement: deterministic; trees appear on some forest tiles
+// Tree density & types with regional modifiers
+const TREE_GLOBAL_DENSITY = 4; // percent (set to 4% by default; change to 2 for sparser)
+function regionDensityModifier(tx,ty){
+  // Simple region rules to create paths and clearings
+  // Create vertical/horizontal paths every 50 tiles
+  const mx = Math.abs(tx) % 50;
+  const my = Math.abs(ty) % 50;
+  if((mx >= 20 && mx <= 30) || (my >= 20 && my <= 30)) return 0; // path
+  // occasional circular clearing centers
+  if(((tx % 97) === 0 && (ty % 61) === 0)) return 0;
+  return 1; // default no change
+}
+function treeDensityAt(tx,ty){
+  if(tileTypeAt(tx,ty) !== 'forest') return 0;
+  const base = TREE_GLOBAL_DENSITY; // percent
+  const mod = regionDensityModifier(tx,ty);
+  return Math.max(0, Math.min(100, Math.round(base * mod)));
+}
 function hasTreeAt(tx,ty){
-  if(tileTypeAt(tx,ty) !== 'forest') return false;
-  // significantly lower tree density to improve navigation (~8% of forest tiles)
-  return (hash2(tx,ty) % 100) < 8; // ~8% density
+  const density = treeDensityAt(tx,ty);
+  if(density <= 0) return false;
+  return (hash2(tx,ty) % 100) < density;
+}
+
+// Tree type: 'large' (possible collidable) vs 'small' (decorative)
+function treeTypeAt(tx,ty){
+  // stable pseudo-random choice per tile
+  const v = hash2(tx+7,ty+13) % 100;
+  return v < 18 ? 'large' : 'small'; // ~18% of trees are large
 }
 function tileBlocked(tx,ty){
   // only fully blocked tiles: water and rock
@@ -207,9 +232,17 @@ window.addEventListener('pointerup', joyPointerUp);
 
 // Rectangle collision: check any tile overlapped by axis-aligned rectangle is blocked
 // For trees we use a smaller circular collision around the tree center so player can pass near trunks
-// Improvements: only a subset of trees are collidable; far-away trees are non-collidable to avoid overblocking.
-const TREE_COLLIDABLE_PERCENT = 25; // % of trees that are solid
+// Improvements: only some trees are collidable and large trees are prioritised; far-away trees are ignored.
+const TREE_COLLIDABLE_PERCENT = 25; // % of large trees that are solid
 const TREE_COLLIDE_IGNORE_DIST = 360; // world pixels beyond which tree collision is ignored
+function isTreeCollidable(tx,ty){
+  if(!hasTreeAt(tx,ty)) return false;
+  const type = treeTypeAt(tx,ty);
+  if(type !== 'large') return false; // only large ones block by default
+  // use a hashed subset to decide solidity (stable)
+  const v = hash2(tx+3,ty+5) % 100;
+  return v < TREE_COLLIDABLE_PERCENT;
+}
 function rectBlockedAtWorld(cx, cy, w, h){
   // cx,cy are center coordinates
   const left = Math.floor((cx - w/2) / TILE);
@@ -221,13 +254,11 @@ function rectBlockedAtWorld(cx, cy, w, h){
       const t = tileTypeAt(tx,ty);
       if(t === 'water' || t === 'rock') return true;
       if(t === 'forest' && hasTreeAt(tx,ty)){
-        // Decide if this tree should be considered for collision
-        const hashVal = hash2(tx,ty) % 100;
-        if(hashVal >= TREE_COLLIDABLE_PERCENT) continue; // non-collidable tree
+        if(!isTreeCollidable(tx,ty)) continue; // decorative or non-solid tree
         // tree collision: circle at tile center with radius scaled to hero
         const treeCx = tx * TILE + TILE/2;
         const treeCy = ty * TILE + TILE/2;
-        const treeRadius = Math.max(4, Math.round(SPRITE_PX * SPRITE_SCALE * 0.10));
+        const treeRadius = Math.max(4, Math.round(SPRITE_PX * SPRITE_SCALE * 0.12));
         // ignore far trees for collision (they are rendered small and should not block)
         const dxp = treeCx - player.x;
         const dyp = treeCy - player.y;
@@ -376,13 +407,14 @@ function draw(){
         // mapping to screen coords
         const treeBaseX = Math.round(sx + TILE/2);
         const treeBaseY = Math.round(sy + TILE/2);
+        const type = treeTypeAt(tx,ty);
         // base sizes (visual)
-        const foliageRadiusFull = Math.max(6, Math.round(SPRITE_PX * SPRITE_SCALE * 0.35));
-        const trunkWidthFull = Math.max(2, Math.round(SPRITE_PX * SPRITE_SCALE * 0.12));
-        const trunkHeightFull = Math.max(4, Math.round(SPRITE_PX * SPRITE_SCALE * 0.22));
+        const foliageRadiusFull = Math.max(6, Math.round(SPRITE_PX * SPRITE_SCALE * (type === 'large' ? 0.35 : 0.18)));
+        const trunkWidthFull = Math.max(2, Math.round(SPRITE_PX * SPRITE_SCALE * (type === 'large' ? 0.12 : 0.06)));
+        const trunkHeightFull = Math.max(2, Math.round(SPRITE_PX * SPRITE_SCALE * (type === 'large' ? 0.22 : 0.10)));
 
         // shadow (subtle ellipse under tree)
-        ctx.fillStyle = 'rgba(0,0,0,0.12)';
+        ctx.fillStyle = type === 'large' ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.08)';
         ctx.beginPath();
         ctx.ellipse(treeBaseX, treeBaseY + Math.round(foliageRadiusFull*0.35), Math.round(foliageRadiusFull*0.9), Math.round(foliageRadiusFull*0.35), 0, 0, Math.PI*2);
         ctx.fill();
@@ -393,21 +425,26 @@ function draw(){
           ctx.beginPath();
           ctx.ellipse(treeBaseX, treeBaseY - Math.round(trunkHeightFull/2), foliageRadiusFull, Math.round(foliageRadiusFull * 0.8), 0, 0, Math.PI*2);
           ctx.fill();
-          ctx.fillStyle = mapToPalette('#8b5a2b');
-          ctx.fillRect(treeBaseX - Math.floor(trunkWidthFull/2), treeBaseY + Math.floor(foliageRadiusFull * 0.2), trunkWidthFull, trunkHeightFull);
+          if(type === 'large'){
+            ctx.fillStyle = mapToPalette('#8b5a2b');
+            ctx.fillRect(treeBaseX - Math.floor(trunkWidthFull/2), treeBaseY + Math.floor(foliageRadiusFull * 0.2), trunkWidthFull, trunkHeightFull);
+          }
         } else if(dist < LOD_FAR){
           // medium detail: smaller foliage and thinner trunk
-          const scale = 0.6;
+          const scale = type === 'large' ? 0.6 : 0.5;
           ctx.fillStyle = mapToPalette('#0b6623');
           ctx.beginPath();
           ctx.ellipse(treeBaseX, treeBaseY - Math.round(trunkHeightFull*scale/2), Math.round(foliageRadiusFull*scale), Math.round(foliageRadiusFull * 0.8 * scale), 0, 0, Math.PI*2);
           ctx.fill();
-          ctx.fillStyle = mapToPalette('#8b5a2b');
-          ctx.fillRect(treeBaseX - Math.floor(trunkWidthFull*scale/2), treeBaseY + Math.floor(foliageRadiusFull * 0.2 * scale), Math.max(1, Math.round(trunkWidthFull*scale)), Math.max(2, Math.round(trunkHeightFull*scale)));
+          if(type === 'large'){
+            ctx.fillStyle = mapToPalette('#8b5a2b');
+            ctx.fillRect(treeBaseX - Math.floor(trunkWidthFull*scale/2), treeBaseY + Math.floor(foliageRadiusFull * 0.2 * scale), Math.max(1, Math.round(trunkWidthFull*scale)), Math.max(2, Math.round(trunkHeightFull*scale)));
+          }
         } else {
-          // far: tiny leaf dot only
+          // far: tiny leaf dot only (small trees even smaller)
+          const dotSize = type === 'large' ? 3 : 1;
           ctx.fillStyle = mapToPalette('#0b6623');
-          ctx.fillRect(treeBaseX - 1, treeBaseY - 1, 2, 2);
+          ctx.fillRect(treeBaseX - Math.floor(dotSize/2), treeBaseY - Math.floor(dotSize/2), dotSize, dotSize);
         }
       }
     }
