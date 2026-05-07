@@ -17,6 +17,7 @@ resize();
 // higher density tiles (TILE=4) and larger procedural hero sprite
 const TILE = 4;
 const DEBUG_COLLISION = true;
+const RENDER_OBSTACLES = false; // when false, rocks/trees are not drawn
 // --- DEBUG OVERLAY (for mobile) ---
 function createDebugOverlay(){
   try{
@@ -291,9 +292,9 @@ function treeTypeAt(tx,ty){
   return v < 18 ? 'large' : 'small'; // ~18% of trees are large
 }
 function tileBlocked(tx,ty){
-  // only fully blocked tiles: water and rock
+  // only water blocks now
   const t = tileTypeAt(tx,ty);
-  if(t === 'water' || t === 'rock') return true;
+  if(t === 'water') return true;
   return false;
 }
 
@@ -343,9 +344,9 @@ window.addEventListener('pointerup', joyPointerUp);
 // Rectangle collision: check any tile overlapped by axis-aligned rectangle is blocked
 // For trees we use a smaller circular collision around the tree center so player can pass near trunks
 // Improvements: allow a small sparse set of explicit obstacles and keep only a tiny fraction collidable
-const TREE_COLLIDABLE_PERCENT = 8; // % of large trees that are solid
+const TREE_COLLIDABLE_PERCENT = 0; // % of large trees that are solid
 const TREE_COLLIDE_IGNORE_DIST = 360; // world pixels beyond which tree collision is ignored
-const OBSTACLE_GLOBAL_DENSITY = 3; // percent chance for placed obstacle anchors
+const OBSTACLE_GLOBAL_DENSITY = 0; // percent chance for placed obstacle anchors
 function placeObstacleAt(tx,ty){
   // deterministic sparse anchors + small random chance
   if(tileTypeAt(tx,ty) !== 'forest') return false;
@@ -353,15 +354,10 @@ function placeObstacleAt(tx,ty){
   return (hash2(tx+13,ty+29) % 100) < OBSTACLE_GLOBAL_DENSITY;
 }
 function isTreeCollidable(tx,ty){
-  // explicitly placed obstacles always collide
-  if(placeObstacleAt(tx,ty)) return true;
-  if(!hasTreeAt(tx,ty)) return false;
-  const type = treeTypeAt(tx,ty);
-  if(type !== 'large') return false; // only large ones block by default
-  // use a hashed subset to decide solidity (stable)
-  const v = hash2(tx+3,ty+5) % 100;
-  return v < TREE_COLLIDABLE_PERCENT;
+  // disable tree collisions entirely
+  return false;
 }
+
 function rectBlockedReason(cx, cy, w, h){
   // returns { blocked: bool, reason: string, info: object }
   const left = Math.floor((cx - w/2) / TILE);
@@ -547,7 +543,7 @@ function draw(){
       }
 
       // draw rock as a larger rounded blob for better proportion with hero (but skip many for decluttering)
-      if(type === 'rock'){
+      if(RENDER_OBSTACLES && type === 'rock'){
         if((hash2(tx,ty+19) % 100) < Math.round(DECOR_GLOBAL_SCALE * 100)){
           const rockColor = mapToPalette('#9ca3af');
           ctx.fillStyle = rockColor;
@@ -560,7 +556,7 @@ function draw(){
       }
 
       // draw tree on forest tiles if present (scaled to character) with shadow and LOD
-      if(type === 'forest' && hasTreeAt(tx,ty)){
+      if(RENDER_OBSTACLES && type === 'forest' && hasTreeAt(tx,ty)){
         // optionally skip rendering of many small decorative trees to reduce clutter
         const ttype = treeTypeAt(tx,ty);
         if(ttype === 'small' && ((hash2(tx,ty+31) % 100) >= Math.round(DECOR_GLOBAL_SCALE * 100))){
