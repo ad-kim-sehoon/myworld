@@ -92,6 +92,10 @@ if(document.readyState === 'complete' || document.readyState === 'interactive') 
 
 const player = {x:0,y:0,vx:0,vy:0,maxSpeed:100,accel:800, walkFrame:0, walkTimer:0, walkFrames:6, facing:0};
 let target = null;
+let _lastMovementCheckX = null;
+let _lastMovementCheckY = null;
+let _stuckTimer = 0;
+let _unstuckCooldown = 0;
 const keys = {};
 window.addEventListener('keydown', e => { keys[e.key] = true; });
 window.addEventListener('keyup', e => { keys[e.key] = false; });
@@ -99,6 +103,9 @@ window.addEventListener('keyup', e => { keys[e.key] = false; });
 // Procedural 32x32 pixel hero renderer with multi-frame walk animation and flip (palette-mapped)
 const SPRITE_PX = 32;
 const SPRITE_SCALE = 2; // displayed size: 64x64
+const COLLISION_W_MULT = 0.44; // fraction of sprite width for collision box
+const COLLISION_H_MULT = 0.78; // fraction of sprite height for collision box
+
 function renderHero(ctx, centerX, centerY, frame = 0, flip = false, bob = 0){
   const pixelSize = SPRITE_SCALE;
   const total = SPRITE_PX * pixelSize;
@@ -442,8 +449,8 @@ function update(dt){
 
   // attempt movement with axis-separated rectangle collision using player's bbox
   // collision box slightly smaller than sprite to avoid snagging on small background dots
-  const w = SPRITE_PX * SPRITE_SCALE * 0.5; // narrower
-  const h = SPRITE_PX * SPRITE_SCALE * 0.85; // a bit shorter
+  const w = SPRITE_PX * SPRITE_SCALE * COLLISION_W_MULT; // collision width
+  const h = SPRITE_PX * SPRITE_SCALE * COLLISION_H_MULT; // collision height
 
   // X
   const newX = player.x + player.vx * dt;
@@ -468,6 +475,34 @@ function update(dt){
 
   // update facing based on horizontal velocity (smooth)
   if(Math.abs(player.vx) > 5) player.facing = player.vx < 0 ? 1 : 0;
+
+  // simple stuck detector/auto-unstuck: if input is present but position doesn't change, try small nudge or respawn nearby once per cooldown
+  const isInput = Math.hypot(inx, iny) > 0.01;
+  if(isInput){
+    if(_lastMovementCheckX === null){ _lastMovementCheckX = player.x; _lastMovementCheckY = player.y; _stuckTimer = 0; } else {
+      const dx = Math.abs(player.x - _lastMovementCheckX); const dy = Math.abs(player.y - _lastMovementCheckY);
+      if(dx < 0.5 && dy < 0.5){
+        _stuckTimer += dt;
+      } else { _stuckTimer = 0; _lastMovementCheckX = player.x; _lastMovementCheckY = player.y; }
+    }
+  } else { _stuckTimer = 0; _lastMovementCheckX = null; _lastMovementCheckY = null; }
+  if(_stuckTimer > 0.35 && _unstuckCooldown <= 0){
+    // attempt small nudges around current tile to find unblocked spot
+    const baseTx = Math.floor(player.x / TILE); const baseTy = Math.floor(player.y / TILE);
+    let found = false;
+    for(let r=1;r<=3 && !found;r++){
+      for(let dy=-r; dy<=r && !found; dy++){
+        for(let dx=-r; dx<=r && !found; dx++){
+          const cx = (baseTx+dx) * TILE + TILE/2; const cy = (baseTy+dy) * TILE + TILE/2;
+          const res = rectBlockedReason(cx, cy, SPRITE_PX * SPRITE_SCALE * COLLISION_W_MULT, SPRITE_PX * SPRITE_SCALE * COLLISION_H_MULT);
+          if(!res.blocked){ player.x = cx; player.y = cy; found = true; break; }
+        }
+      }
+    }
+    if(found){ _unstuckCooldown = 1.2; debugMsg('auto-unstuck: teleported to nearby safe tile',{x:player.x,y:player.y}); } else { _unstuckCooldown = 1.2; debugMsg('auto-unstuck: none found nearby, will retry later'); }
+    _stuckTimer = 0;
+  }
+  _unstuckCooldown = Math.max(0, _unstuckCooldown - dt);
 
   // update walk animation speed based on current speed ratio
   const speed = Math.hypot(player.vx, player.vy);
@@ -627,8 +662,8 @@ function tilePositionSafe(tx,ty){
 function findSafeSpawn(){
   const maxR = 64; // search radius in tiles
   // player's collision box used for testing
-  const w = SPRITE_PX * SPRITE_SCALE * 0.5;
-  const h = SPRITE_PX * SPRITE_SCALE * 0.85;
+  const w = SPRITE_PX * SPRITE_SCALE * COLLISION_W_MULT;
+  const h = SPRITE_PX * SPRITE_SCALE * COLLISION_H_MULT;
   for(let r=0;r<=maxR;r++){
     for(let dy=-r; dy<=r; dy++){
       for(let dx=-r; dx<=r; dx++){
