@@ -178,8 +178,8 @@ function hash2(x,y){
 function tileTypeAt(tx,ty){
   const v = hash2(tx,ty) % 100;
   if(v < 5) return 'water';
-  if(v < 2) return 'rock';
-  if(v < 10) return 'forest';
+  if(v < 1) return 'rock';
+  if(v < 1) return 'forest';
   return 'grass';
 }
 // Palette: 256-color palette (6x6x6 cube + 40 grays) and fast nearest-color cache
@@ -233,9 +233,9 @@ function tileColor(type){
 
 // Tree placement: deterministic; trees appear on some forest tiles
 // Tree density & types with regional modifiers
-const TREE_GLOBAL_DENSITY = 2; // percent (base density)
+const TREE_GLOBAL_DENSITY = 0; // percent (base density)
 
-let TREE_GLOBAL_SCALE = 0.03; // global scale multiplier (0.2 keeps ~20% of previous trees)
+let TREE_GLOBAL_SCALE = 0.003; // global scale multiplier (0.2 keeps ~20% of previous trees)
 // Decoration scale (controls how many small decorative pixels/objects are drawn)
 let DECOR_GLOBAL_SCALE = 0.2; // 0.2 => draw ~20% of decorative pixels
 // Quickly reduce object counts by multiplying TREE_GLOBAL_SCALE (e.g., 0.2 removes ~80%)
@@ -344,7 +344,7 @@ window.addEventListener('pointerup', joyPointerUp);
 // Rectangle collision: check any tile overlapped by axis-aligned rectangle is blocked
 // For trees we use a smaller circular collision around the tree center so player can pass near trunks
 // Improvements: allow a small sparse set of explicit obstacles and keep only a tiny fraction collidable
-const TREE_COLLIDABLE_PERCENT = 2; // % of large trees that are solid
+const TREE_COLLIDABLE_PERCENT = 0; // % of large trees that are solid
 const TREE_COLLIDE_IGNORE_DIST = 360; // world pixels beyond which tree collision is ignored
 const OBSTACLE_GLOBAL_DENSITY = 0; // percent chance for placed obstacle anchors
 function placeObstacleAt(tx,ty){
