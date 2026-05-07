@@ -293,9 +293,8 @@ function treeTypeAt(tx,ty){
   return v < 18 ? 'large' : 'small'; // ~18% of trees are large
 }
 function tileBlocked(tx,ty){
-  // only fully blocked tiles: water and rock
   const t = tileTypeAt(tx,ty);
-  if(t === 'water' || t === 'rock') return true;
+  if(t === 'water') return true;
   return false;
 }
 
@@ -373,7 +372,7 @@ function rectBlockedReason(cx, cy, w, h){
   for(let ty = top; ty <= bottom; ty++){
     for(let tx = left; tx <= right; tx++){
       const t = tileTypeAt(tx,ty);
-      if(t === 'water' || t === 'rock'){
+      if(t === 'water'){
         if(DEBUG_COLLISION) console.debug('rectBlockedReason: blocked by tile', {tx,ty,type:t,cx,cy,w,h});
         try{ debugMsg('rectBlockedReason: blocked by tile', {tx,ty,type:t,cx,cy,w,h}); }catch(e){};
         return {blocked:true, reason:'tile', info:{tx,ty,type:t}};
@@ -550,67 +549,11 @@ function draw(){
       }
 
       // draw rock as a larger rounded blob for better proportion with hero (but skip many for decluttering)
-      if(type === 'rock'){
-        if((hash2(tx,ty+19) % 100) < Math.round(DECOR_GLOBAL_SCALE * 100)){
-          if(obstaclesDrawn < MAX_OBSTACLES_ON_SCREEN){
-            const rockColor = mapToPalette('#9ca3af');
-            ctx.fillStyle = rockColor;
-            const rw = Math.max(6, Math.round(SPRITE_PX * SPRITE_SCALE * 0.18));
-            const rh = Math.max(4, Math.round(rw * 0.7));
-            ctx.beginPath();
-            ctx.ellipse(Math.round(sx + TILE/2), Math.round(sy + TILE/2), Math.round(rw/2), Math.round(rh/2), 0, 0, Math.PI*2);
-            ctx.fill();
-            obstaclesDrawn++;
-          }
-        }
+              }
       }
 
       // draw tree on forest tiles if present (scaled to character) with shadow and LOD
-      if(type === 'forest' && hasTreeAt(tx,ty)){
-        // optionally skip rendering of many small decorative trees to reduce clutter
-        const ttype = treeTypeAt(tx,ty);
-        if(ttype === 'large' && obstaclesDrawn >= MAX_OBSTACLES_ON_SCREEN){
-          // skip drawing this large tree because obstacle limit reached
-        } else {
-          if(ttype === 'large') obstaclesDrawn++;
-        if(ttype === 'small' && ((hash2(tx,ty+31) % 100) >= Math.round(DECOR_GLOBAL_SCALE * 100))){
-          // skip drawing this decorative small tree
-        } else {
-          // world position of tile center
-          const treeWorldX = tx * TILE + TILE/2;
-          const treeWorldY = ty * TILE + TILE/2;
-          const dxp = treeWorldX - player.x;
-          const dyp = treeWorldY - player.y;
-          const dist = Math.hypot(dxp, dyp);
-          // LOD thresholds (in world pixels)
-          const LOD_NEAR = 220;
-          const LOD_FAR = 420;
-          // mapping to screen coords
-          const treeBaseX = Math.round(sx + TILE/2);
-          const treeBaseY = Math.round(sy + TILE/2);
-          const type = ttype;
-          // base sizes (visual)
-          const foliageRadiusFull = Math.max(6, Math.round(SPRITE_PX * SPRITE_SCALE * (type === 'large' ? 0.35 : 0.18)));
-          const trunkWidthFull = Math.max(2, Math.round(SPRITE_PX * SPRITE_SCALE * (type === 'large' ? 0.12 : 0.06)));
-          const trunkHeightFull = Math.max(2, Math.round(SPRITE_PX * SPRITE_SCALE * (type === 'large' ? 0.22 : 0.10)));
-
-          // shadow (subtle ellipse under tree)
-          ctx.fillStyle = type === 'large' ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.08)';
-          ctx.beginPath();
-          ctx.ellipse(treeBaseX, treeBaseY + Math.round(foliageRadiusFull*0.35), Math.round(foliageRadiusFull*0.9), Math.round(foliageRadiusFull*0.35), 0, 0, Math.PI*2);
-          ctx.fill();
-
-          if(dist < LOD_NEAR){
-            // full detail
-            ctx.fillStyle = mapToPalette('#0b6623');
-            ctx.beginPath();
-            ctx.ellipse(treeBaseX, treeBaseY - Math.round(trunkHeightFull/2), foliageRadiusFull, Math.round(foliageRadiusFull * 0.8), 0, 0, Math.PI*2);
-            ctx.fill();
-            if(type === 'large'){
-              ctx.fillStyle = mapToPalette('#8b5a2b');
-              ctx.fillRect(treeBaseX - Math.floor(trunkWidthFull/2), treeBaseY + Math.floor(foliageRadiusFull * 0.2), trunkWidthFull, trunkHeightFull);
-            }
-          } else if(dist < LOD_FAR){
+                } else if(dist < LOD_FAR){
             // medium detail: smaller foliage and thinner trunk
             const scale = type === 'large' ? 0.6 : 0.5;
             ctx.fillStyle = mapToPalette('#0b6623');
