@@ -235,9 +235,9 @@ function tileColor(type){
 // Tree density & types with regional modifiers
 const TREE_GLOBAL_DENSITY = 0; // percent (base density)
 
-let TREE_GLOBAL_SCALE = 0.003; // global scale multiplier (0.2 keeps ~20% of previous trees)
+let TREE_GLOBAL_SCALE = 0.00015; // global scale multiplier (0.2 keeps ~20% of previous trees)
 // Decoration scale (controls how many small decorative pixels/objects are drawn)
-let DECOR_GLOBAL_SCALE = 0.2; // 0.2 => draw ~20% of decorative pixels
+let DECOR_GLOBAL_SCALE = 0.01; // 0.2 => draw ~20% of decorative pixels
 // Quickly reduce object counts by multiplying TREE_GLOBAL_SCALE (e.g., 0.2 removes ~80%)
 function regionDensityModifier(tx,ty){
   // Simple region rules to create paths and clearings
