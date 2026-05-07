@@ -178,8 +178,8 @@ function hash2(x,y){
 function tileTypeAt(tx,ty){
   const v = hash2(tx,ty) % 100;
   if(v < 5) return 'water';
-  if(v < 12) return 'rock';
-  if(v < 30) return 'forest';
+  if(v < 8) return 'rock';
+  if(v < 22) return 'forest';
   return 'grass';
 }
 // Palette: 256-color palette (6x6x6 cube + 40 grays) and fast nearest-color cache
@@ -234,7 +234,8 @@ function tileColor(type){
 // Tree placement: deterministic; trees appear on some forest tiles
 // Tree density & types with regional modifiers
 const TREE_GLOBAL_DENSITY = 4; // percent (base density)
-let TREE_GLOBAL_SCALE = 0.2; // global scale multiplier (0.2 keeps ~20% of previous trees)
+
+let TREE_GLOBAL_SCALE = 0.12; // global scale multiplier (0.2 keeps ~20% of previous trees)
 // Decoration scale (controls how many small decorative pixels/objects are drawn)
 let DECOR_GLOBAL_SCALE = 0.2; // 0.2 => draw ~20% of decorative pixels
 // Quickly reduce object counts by multiplying TREE_GLOBAL_SCALE (e.g., 0.2 removes ~80%)
@@ -345,7 +346,7 @@ window.addEventListener('pointerup', joyPointerUp);
 // Improvements: allow a small sparse set of explicit obstacles and keep only a tiny fraction collidable
 const TREE_COLLIDABLE_PERCENT = 8; // % of large trees that are solid
 const TREE_COLLIDE_IGNORE_DIST = 360; // world pixels beyond which tree collision is ignored
-const OBSTACLE_GLOBAL_DENSITY = 3; // percent chance for placed obstacle anchors
+const OBSTACLE_GLOBAL_DENSITY = 1; // percent chance for placed obstacle anchors
 function placeObstacleAt(tx,ty){
   // deterministic sparse anchors + small random chance
   if(tileTypeAt(tx,ty) !== 'forest') return false;
