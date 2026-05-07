@@ -17,6 +17,7 @@ resize();
 // higher density tiles (TILE=4) and larger procedural hero sprite
 const TILE = 4;
 const DEBUG_COLLISION = true;
+const MAX_OBSTACLES_ON_SCREEN = 3;
 // --- DEBUG OVERLAY (for mobile) ---
 function createDebugOverlay(){
   try{
@@ -523,6 +524,7 @@ function update(dt){
 function draw(){
   ctx.fillStyle = '#e6f0ff';
   ctx.fillRect(0,0,canvas.width/DPR, canvas.height/DPR);
+  let obstaclesDrawn = 0;
   const halfW = (canvas.width/DPR)/2;
   const halfH = (canvas.height/DPR)/2;
   const camX = player.x - halfW;
@@ -550,13 +552,16 @@ function draw(){
       // draw rock as a larger rounded blob for better proportion with hero (but skip many for decluttering)
       if(type === 'rock'){
         if((hash2(tx,ty+19) % 100) < Math.round(DECOR_GLOBAL_SCALE * 100)){
-          const rockColor = mapToPalette('#9ca3af');
-          ctx.fillStyle = rockColor;
-          const rw = Math.max(6, Math.round(SPRITE_PX * SPRITE_SCALE * 0.18));
-          const rh = Math.max(4, Math.round(rw * 0.7));
-          ctx.beginPath();
-          ctx.ellipse(Math.round(sx + TILE/2), Math.round(sy + TILE/2), Math.round(rw/2), Math.round(rh/2), 0, 0, Math.PI*2);
-          ctx.fill();
+          if(obstaclesDrawn < MAX_OBSTACLES_ON_SCREEN){
+            const rockColor = mapToPalette('#9ca3af');
+            ctx.fillStyle = rockColor;
+            const rw = Math.max(6, Math.round(SPRITE_PX * SPRITE_SCALE * 0.18));
+            const rh = Math.max(4, Math.round(rw * 0.7));
+            ctx.beginPath();
+            ctx.ellipse(Math.round(sx + TILE/2), Math.round(sy + TILE/2), Math.round(rw/2), Math.round(rh/2), 0, 0, Math.PI*2);
+            ctx.fill();
+            obstaclesDrawn++;
+          }
         }
       }
 
@@ -564,6 +569,10 @@ function draw(){
       if(type === 'forest' && hasTreeAt(tx,ty)){
         // optionally skip rendering of many small decorative trees to reduce clutter
         const ttype = treeTypeAt(tx,ty);
+        if(ttype === 'large' && obstaclesDrawn >= MAX_OBSTACLES_ON_SCREEN){
+          // skip drawing this large tree because obstacle limit reached
+        } else {
+          if(ttype === 'large') obstaclesDrawn++;
         if(ttype === 'small' && ((hash2(tx,ty+31) % 100) >= Math.round(DECOR_GLOBAL_SCALE * 100))){
           // skip drawing this decorative small tree
         } else {
