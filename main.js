@@ -626,13 +626,21 @@ function tilePositionSafe(tx,ty){
 }
 function findSafeSpawn(){
   const maxR = 64; // search radius in tiles
+  // player's collision box used for testing
+  const w = SPRITE_PX * SPRITE_SCALE * 0.5;
+  const h = SPRITE_PX * SPRITE_SCALE * 0.85;
   for(let r=0;r<=maxR;r++){
     for(let dy=-r; dy<=r; dy++){
       for(let dx=-r; dx<=r; dx++){
         const tx = dx; const ty = dy;
-        if(tilePositionSafe(tx,ty)){
-          player.x = tx * TILE + TILE/2;
-          player.y = ty * TILE + TILE/2;
+        if(!tilePositionSafe(tx,ty)) continue;
+        const cx = tx * TILE + TILE/2;
+        const cy = ty * TILE + TILE/2;
+        // ensure the player's bbox at this world position does not overlap blocked tiles
+        const res = rectBlockedReason(cx, cy, w, h);
+        if(!res.blocked){
+          player.x = cx;
+          player.y = cy;
           return;
         }
       }
